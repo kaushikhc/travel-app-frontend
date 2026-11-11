@@ -32,6 +32,15 @@ class MemoryDetailView extends ConsumerWidget {
             ),
           if (memory.hasValue)
             IconButton(
+              icon: const Icon(Icons.edit_outlined),
+              tooltip: 'Edit memory',
+              onPressed: () => context.push(
+                AppRoutes.editMemory(memoryId),
+                extra: memory.requireValue,
+              ),
+            ),
+          if (memory.hasValue)
+            IconButton(
               icon: const Icon(Icons.delete_outline),
               tooltip: 'Delete memory',
               onPressed: () => _confirmDelete(context, ref),
