@@ -1,6 +1,7 @@
 # Project status: Flutter client
 
 Last updated: 2026-11-11 (community feed; memories: edit a saved memory, camera in Capture; explore and wishlist)
+Last updated: 2026-11-11 (trip itinerary view; memories: edit a saved memory, camera in Capture; explore and wishlist)
 
 ## Where things stand
 - Scaffold with feature folders: auth, profile, trip, memories, capture, explore, navigation.
@@ -22,6 +23,9 @@ Last updated: 2026-11-11 (community feed; memories: edit a saved memory, camera 
 - Community (`lib/features/community`; the backbone puts it under Explore, so it is a third segment "Community" of the Explore tab): `CommunityRepository` (`GET /community/feed` = people I follow, `GET /community/recent` = everyone, both `{posts, page, size, hasMore}`, 0-based `page`; `PUT|DELETE /posts/{id}/like` returns the updated post; `POST /posts/share/{memoryId}`). `feedProvider(FeedKind)` is a paged `AsyncNotifier` ("Load more" button, pull to refresh, like replaced by the server's post). `PostCard` shows author, first photo (signed `url` from the post's memory; videos skipped), title, caption and like count; the place button opens `/explore/places/{id}` where wishlist and plan-into-trip already work. Memory detail has a Share to Community icon when the memory is not PRIVATE (the server's 409 `{message}` is shown). Not built yet: follow/unfollow and public traveler profiles (own PR), editing or deleting a post.
 - Trip covers: `TripResponse` carries only `coverMediaId` (Sam's call); the app fetches the signed link with `GET /api/media/{id}` (`mediaUrlProvider`), lazily per card, reused for 50 minutes because links expire after the backend's 1-hour download TTL. Add a batch endpoint only if a screen ever shows many covers.
 - Tests: 61 (community feed and post model, explore, memories incl. update body and edit prefill, trips, auth, profile, router, time, Home, smoke). `flutter analyze` clean. Android build not yet verified on a device.
+- Trip itinerary (`TripItineraryView`, route `/trips/:id/itinerary`, "Itinerary" button on trip detail): read-only day-by-day view built client side by `buildItinerary` (`trip/domain/itinerary.dart`) from the data `tripDetailProvider` already loads, so no new API calls. Entries are grouped by local calendar day: planned places (all day, by `plannedDate`), stay check-in/out, transport departures and visits, sorted by time. Every day in the trip's date range is listed (ranges up to 120 days), plus any day outside it that has entries; places with no date go under "No date yet". Editing from the itinerary is not built (use the trip detail lists/edit).
+- Trip covers: `TripResponse` carries only `coverMediaId` (Sam's call); the app fetches the signed link with `GET /api/media/{id}` (`mediaUrlProvider`), lazily per card, reused for 50 minutes because links expire after the backend's 1-hour download TTL. Add a batch endpoint only if a screen ever shows many covers.
+- Tests: 63 (itinerary grouping and view, explore, memories incl. update body and edit prefill, trips, auth, profile, router, time, Home, smoke). `flutter analyze` clean. Android build not yet verified on a device.
 
 ## Auth design (PR "Auth rework")
 - `AuthNotifier` (`features/auth/presentation/auth_state.dart`) owns the session: states checking, unauthenticated, loading, authenticated, error. At start it restores the token from `TokenStorage` (`core/storage`, flutter_secure_storage) and checks it with `/auth/check`: rejected tokens are dropped, an unreachable server keeps the session.
@@ -43,6 +47,8 @@ Last updated: 2026-11-11 (community feed; memories: edit a saved memory, camera 
 5. Remaining MVP screens, in this order:
    1. Trip itinerary on trip detail: planned places (`/api/trips/{id}/places`), visits, transport and accommodation (list, add, edit, delete).
    2. Community: done (feed, likes, share a memory; see the Community bullet). Follow/unfollow comes with the profiles in step 4.
+   1. Trip itinerary on trip detail: the read-only day-by-day view is done (see the Trip itinerary bullet); still to do: add, edit, delete of planned places (`/api/trips/{id}/places`), visits, transport and accommodation (list, add, edit, delete).
+   2. Community: share a memory as a post (`POST /api/posts/share/{memoryId}`), friends feed (`/api/explore/community/friends`), likes/comments as the backend allows.
    3. Statistics and visited-countries map (`/api/statistics/me`), plus History/Remember (`HistoryController`).
    4. Other travelers' public profiles (owner-only fields hidden).
    Cross-cutting before MVP: dio 401 interceptor (log out on expired token), verify Android build and camera on a real device, video capture, moving a memory to another trip (needs a backend field), replace remaining Unsplash mocks.
