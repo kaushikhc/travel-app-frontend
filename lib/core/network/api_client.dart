@@ -34,11 +34,7 @@ class ApiClient {
         baseUrl: targetUrl,
         connectTimeout: const Duration(seconds: 15),
         receiveTimeout: const Duration(seconds: 15),
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'ngrok-skip-browser-warning': 'true',
-        },
+        headers: headersFor(targetUrl),
       ),
     );
 
@@ -59,6 +55,20 @@ class ApiClient {
   }
 
   String get baseUrl => _dio.options.baseUrl;
+
+  /// Default headers. The ngrok header is sent only to ngrok hosts: the backend's CORS
+  /// allows just Authorization, Content-Type and Accept, so any other header makes the
+  /// browser's preflight fail and every call from localhost:8080 look like a network error.
+  static Map<String, String> headersFor(String baseUrl) {
+    final Map<String, String> headers = <String, String>{
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    };
+    if (Uri.tryParse(baseUrl)?.host.contains('ngrok') ?? false) {
+      headers['ngrok-skip-browser-warning'] = 'true';
+    }
+    return headers;
+  }
 
   bool get hasAuthToken => _authToken != null && _authToken!.isNotEmpty;
 

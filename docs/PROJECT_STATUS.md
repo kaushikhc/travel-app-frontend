@@ -36,6 +36,7 @@ Until the MVP is ready, PRs go to `main`. After that, all development goes to `d
 - iOS on hold; Apple sign-in to be decided when iOS resumes.
 
 ## How to run
+- Backend CORS allows only the `Authorization`, `Content-Type` and `Accept` headers. Don't add other default headers for non-ngrok hosts, or browser calls fail as "could not reach the server".
 - PC, Chrome: `flutter run -d chrome --web-port 8080` (port 8080 is where the backend sends Google sign-in back; on localhost the app calls `http://localhost/api`).
 - Android emulator: `--dart-define=API_BASE_URL=http://10.0.2.2/api` (10.0.2.2 is the PC). Debug builds allow plain http for this; release builds need https.
 
