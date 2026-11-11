@@ -38,7 +38,16 @@ class _MemoriesViewState extends ConsumerState<MemoriesView> {
       for (final TripModel t in ref.watch(tripsProvider).value ?? const <TripModel>[]) t.id: t.name,
     };
     return Scaffold(
-      appBar: AppBar(title: const Text('Memories', style: TextStyle(fontWeight: FontWeight.bold))),
+      appBar: AppBar(
+        title: const Text('Memories', style: TextStyle(fontWeight: FontWeight.bold)),
+        actions: <Widget>[
+          TextButton.icon(
+            icon: const Icon(Icons.public),
+            label: const Text('My travels'),
+            onPressed: () => context.push(AppRoutes.journey),
+          ),
+        ],
+      ),
       body: RefreshIndicator(
         onRefresh: _refresh,
         child: memories.when(

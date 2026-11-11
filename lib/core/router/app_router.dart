@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../features/auth/presentation/auth_state.dart';
 import '../../features/auth/presentation/login_view.dart';
 import '../../features/navigation/presentation/main_scaffold.dart';
+import '../../features/journey/presentation/journey_view.dart';
 import '../../features/trip/presentation/trips_view.dart';
 import '../../features/trip/presentation/trip_detail_view.dart';
 import '../../features/trip/presentation/trip_itinerary_view.dart';
@@ -123,6 +124,7 @@ final routerProvider = Provider<GoRouter>((ref) {
               child: MemoriesView(),
             ),
             routes: <RouteBase>[
+              GoRoute(path: 'journey', builder: (BuildContext context, GoRouterState state) => const JourneyView()),
               GoRoute(
                 path: ':id',
                 builder: (BuildContext context, GoRouterState state) =>
