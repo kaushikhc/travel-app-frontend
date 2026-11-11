@@ -1,16 +1,17 @@
 # Project status: Flutter client
 
-Last updated: 2026-11-11 (age only from birthday)
+Last updated: 2026-11-11 (choose a username after the first Google sign-in)
 
 ## Where things stand
 - Scaffold with feature folders: auth, profile, trip, memories, capture, explore, navigation.
 - Profile sends the device IANA time zone (`flutter_timezone`) whenever it differs from the server's; countries come from `GET /api/places/countries` (`CountryPicker`, searchable).
 - Profile photo: picking a photo uploads it straight away through the media API (`MediaRepository.uploadPhoto`: `POST /api/media/uploads`, PUT the bytes to the signed URL with a plain Dio, `POST /api/media/{id}/complete`), and saving sends `photoMediaId` (needs backend kaushikhc/travel-app#37). The profile's `photoUrl` is the signed link to show. Never send base64 in `photoUrl`; the backend rejects it.
 - Birthday: `BirthdayPicker` (day, month, year dropdowns; no impossible or future dates), sent as `yyyy-MM-dd` (`ApiDate`). There is no Age input: the server works out `age` from the birthday. Birthday is only returned by `GET /profile/me`, so other travelers never see it.
+- First Google sign-in: when `/profile/me` says `usernameChosen: false`, the router sends the traveler to `ChooseUsernameView` (before profile setup). They pick a username and an optional password, or skip to keep the Google email. `AuthNotifier.chooseUsername` swaps in the new token the server returns (needs backend kaushikhc/travel-app#39).
 - Wired to the API: email login and register, Google sign-in (native on Android via `POST /api/auth/google`, redirect plus `POST /api/auth/exchange` on web), `/auth/check`, `/auth/logout`, `GET|PUT /profile/me`.
 - Home tab (`TripsView`) on real data: `GET /api/trips/home` (current trip with day progress, upcoming, drafts) and `GET /api/statistics/me` (countries, trips, memories), with loading, empty and error states. `TripModel` uses the backend statuses (DRAFT/UPCOMING/ACTIVE/ARCHIVED).
 - Mock data only: memories, capture, explore. Trip covers: `TripResponse` carries only `coverMediaId` (Sam's call); the app fetches the signed link with `GET /api/media/{id}` (`mediaUrlProvider`), lazily per card, reused for 50 minutes because links expire after the backend's 1-hour download TTL. Add a batch endpoint only if a screen ever shows many covers.
-- Tests: 39 (photo upload, birthday picker and dates, media link caching, router redirect rules, auth notifier, time parsing, countries, time zone sync, trip model, Home view, smoke test). `flutter analyze` clean; `flutter build web` OK. Android build not yet verified on a device.
+- Tests: 41 (choose username, photo upload, birthday picker and dates, media link caching, router redirect rules, auth notifier, time parsing, countries, time zone sync, trip model, Home view, smoke test). `flutter analyze` clean; `flutter build web` OK. Android build not yet verified on a device.
 
 ## Auth design (PR "Auth rework")
 - `AuthNotifier` (`features/auth/presentation/auth_state.dart`) owns the session: states checking, unauthenticated, loading, authenticated, error. At start it restores the token from `TokenStorage` (`core/storage`, flutter_secure_storage) and checks it with `/auth/check`: rejected tokens are dropped, an unreachable server keeps the session.

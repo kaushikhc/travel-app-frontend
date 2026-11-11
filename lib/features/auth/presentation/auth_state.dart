@@ -128,6 +128,22 @@ class AuthNotifier extends Notifier<AuthState> {
     }
   }
 
+  /// Picks a username (and optional password) after a first Google sign-in, or skips when both
+  /// are empty. Swaps in the new token without leaving the signed-in state. Returns an error
+  /// message, or null on success.
+  Future<String?> chooseUsername({String? username, String? password}) async {
+    try {
+      final AuthSession session =
+          await _repository.chooseUsername(username: username, password: password);
+      await _storage.write(session.token);
+      _apiClient.setAuthToken(session.token);
+      if (ref.mounted) state = AuthState.authenticated(UserModel(username: session.username));
+      return null;
+    } catch (e) {
+      return _message(e);
+    }
+  }
+
   Future<void> _clearSession() async {
     _apiClient.clearAuthToken();
     await _storage.clear();

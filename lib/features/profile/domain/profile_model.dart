@@ -27,6 +27,8 @@ class ProfileModel {
 
   /// IANA zone id stored on the server (default `UTC`).
   final String timeZone;
+  /// False right after a first Google sign-in, until the traveler picks a username or skips.
+  final bool usernameChosen;
 
   const ProfileModel({
     required this.travelerId,
@@ -41,6 +43,7 @@ class ProfileModel {
     this.birthday,
     this.createdAt,
     this.timeZone = 'UTC',
+    this.usernameChosen = true,
   });
 
   /// Returns true when all mandatory on-boarding fields are filled.
@@ -61,6 +64,7 @@ class ProfileModel {
       birthday: ApiDate.parse(json['birthday'] as String?),
       createdAt: ApiTime.parseUtc(json['createdAt'] as String?),
       timeZone: json['timeZone'] as String? ?? 'UTC',
+      usernameChosen: json['usernameChosen'] as bool? ?? true,
     );
   }
 

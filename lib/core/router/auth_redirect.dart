@@ -7,6 +7,7 @@ abstract final class AppRoutes {
   static const String login = '/login';
   static const String loading = '/loading';
   static const String profileSetup = '/profile-setup';
+  static const String chooseUsername = '/choose-username';
   static const String home = '/home';
 }
 
@@ -41,8 +42,13 @@ String? authRedirect({required AuthState auth, required ProfileState profile, re
     // Profile failed to load: let the user in; screens can retry.
     return entryPaths.contains(path) || path == AppRoutes.profileSetup ? AppRoutes.home : null;
   }
+  if (profile.needsUsername) {
+    return path == AppRoutes.chooseUsername ? null : AppRoutes.chooseUsername;
+  }
   if (profile.needsSetup) {
     return path == AppRoutes.profileSetup ? null : AppRoutes.profileSetup;
   }
-  return entryPaths.contains(path) || path == AppRoutes.profileSetup ? AppRoutes.home : null;
+  return entryPaths.contains(path) || path == AppRoutes.profileSetup || path == AppRoutes.chooseUsername
+      ? AppRoutes.home
+      : null;
 }

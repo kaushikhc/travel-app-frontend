@@ -41,6 +41,12 @@ class FakeAuthRepository implements AuthRepository {
   Future<SessionCheck> checkSession() async => check;
   @override
   Future<void> logout() async {}
+  @override
+  Future<AuthSession> chooseUsername({String? username, String? password}) async {
+    if (username == 'taken') throw Exception('That username is taken. Please try another.');
+    final String name = (username == null || username.isEmpty) ? 'n@example.com' : username;
+    return AuthSession(token: 'jwt-$name', username: name);
+  }
 }
 
 class FakeGoogleGateway implements GoogleSignInGateway {
@@ -143,5 +149,20 @@ void main() {
     expect(c.read(authStateProvider).status, AuthStatus.unauthenticated);
     expect(storage.token, isNull);
     expect(api.hasAuthToken, isFalse);
+  });
+
+  test('choosing a username swaps in the new token and stays signed in', () async {
+    final ProviderContainer c = makeContainer();
+    await settled(c);
+    await c.read(authStateProvider.notifier).signInWithGoogleNative();
+
+    expect(await c.read(authStateProvider.notifier).chooseUsername(username: 'taken'),
+        'That username is taken. Please try another.');
+    expect(storage.token, 'jwt-native');
+
+    expect(await c.read(authStateProvider.notifier).chooseUsername(username: 'nina_t', password: 'long-enough'), isNull);
+    expect(c.read(authStateProvider).status, AuthStatus.authenticated);
+    expect(c.read(authStateProvider).user?.username, 'nina_t');
+    expect(storage.token, 'jwt-nina_t');
   });
 }
