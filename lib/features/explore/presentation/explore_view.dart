@@ -53,6 +53,13 @@ class _ExploreViewState extends ConsumerState<ExploreView> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Explore', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 24)),
+        actions: <Widget>[
+          TextButton.icon(
+            icon: const Icon(Icons.collections_bookmark_outlined),
+            label: const Text('Collections'),
+            onPressed: () => context.push(AppRoutes.collections),
+          ),
+        ],
       ),
       body: Column(
         children: <Widget>[

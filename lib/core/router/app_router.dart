@@ -7,6 +7,7 @@ import '../../features/auth/presentation/login_view.dart';
 import '../../features/navigation/presentation/main_scaffold.dart';
 import '../../features/journey/presentation/journey_view.dart';
 import '../../features/community/presentation/traveler_view.dart';
+import '../../features/collections/presentation/collections_view.dart';
 import '../../features/trip/presentation/trips_view.dart';
 import '../../features/trip/presentation/trip_detail_view.dart';
 import '../../features/trip/presentation/trip_itinerary_view.dart';
@@ -170,6 +171,17 @@ final routerProvider = Provider<GoRouter>((ref) {
               child: ExploreView(),
             ),
             routes: <RouteBase>[
+              GoRoute(
+                path: 'collections',
+                builder: (BuildContext context, GoRouterState state) => const CollectionsView(),
+                routes: <RouteBase>[
+                  GoRoute(
+                    path: ':id',
+                    builder: (BuildContext context, GoRouterState state) =>
+                        CollectionDetailView(collectionId: int.tryParse(state.pathParameters['id'] ?? '') ?? 0),
+                  ),
+                ],
+              ),
               GoRoute(
                 path: 'places/:id',
                 builder: (BuildContext context, GoRouterState state) =>
