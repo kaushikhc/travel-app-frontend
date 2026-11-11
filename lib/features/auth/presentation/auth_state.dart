@@ -35,6 +35,9 @@ class AuthNotifier extends Notifier<AuthState> {
 
   @override
   AuthState build() {
+    final ApiClient client = ref.read(apiClientProvider);
+    client.onUnauthorized = _onSessionRejected;
+    ref.onDispose(() => client.onUnauthorized = null);
     Future<void>.microtask(restoreSession);
     return const AuthState.checking();
   }
@@ -59,6 +62,13 @@ class AuthNotifier extends Notifier<AuthState> {
     }
     // Profile details (username, display name) come from /profile/me.
     state = AuthState.authenticated(null);
+  }
+
+  /// The server rejected our token mid-session (expired or revoked): drop it and go to sign-in.
+  Future<void> _onSessionRejected() async {
+    if (!ref.mounted || !state.isAuthenticated) return;
+    await _clearSession();
+    if (ref.mounted) state = const AuthState.unauthenticated();
   }
 
   Future<bool> login(String username, String password) {
