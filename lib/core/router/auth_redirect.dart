@@ -21,6 +21,8 @@ abstract final class AppRoutes {
   static String editMemory(int id) => '/memories/$id/edit';
   static const String explore = '/explore';
   static String placeDetail(int id) => '/explore/places/$id';
+  static const String collections = '/explore/collections';
+  static String collection(int id) => '/explore/collections/$id';
 }
 
 /// Where the router should send the user, or null to stay. A pure function of the current state
