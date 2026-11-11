@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/router/auth_redirect.dart';
 import '../../trip/data/trip_repository.dart';
 import '../../trip/domain/trip_model.dart';
+import '../../community/presentation/community_feed.dart';
 import '../data/explore_repository.dart';
 import '../domain/category_model.dart';
 import '../domain/place_model.dart';
@@ -16,7 +17,7 @@ import 'widgets/wishlist_button.dart';
 /// The backend rejects searches shorter than this.
 const int minSearchLength = 2;
 
-enum _ExploreTab { discover, wishlist }
+enum _ExploreTab { discover, community, wishlist }
 
 class ExploreView extends ConsumerStatefulWidget {
   /// How long typing must pause before the search runs.
@@ -60,13 +61,20 @@ class _ExploreViewState extends ConsumerState<ExploreView> {
             child: SegmentedButton<_ExploreTab>(
               segments: const <ButtonSegment<_ExploreTab>>[
                 ButtonSegment<_ExploreTab>(value: _ExploreTab.discover, icon: Icon(Icons.explore), label: Text('Discover')),
+                ButtonSegment<_ExploreTab>(value: _ExploreTab.community, icon: Icon(Icons.people_outline), label: Text('Community')),
                 ButtonSegment<_ExploreTab>(value: _ExploreTab.wishlist, icon: Icon(Icons.favorite), label: Text('Wishlist')),
               ],
               selected: <_ExploreTab>{_tab},
               onSelectionChanged: (Set<_ExploreTab> s) => setState(() => _tab = s.first),
             ),
           ),
-          Expanded(child: _tab == _ExploreTab.discover ? _discover(context) : const _WishlistList()),
+          Expanded(
+            child: switch (_tab) {
+              _ExploreTab.discover => _discover(context),
+              _ExploreTab.community => const CommunityFeed(),
+              _ExploreTab.wishlist => const _WishlistList(),
+            },
+          ),
         ],
       ),
     );
