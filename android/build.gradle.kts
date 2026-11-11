@@ -17,15 +17,15 @@ subprojects {
 }
 // Plugins such as file_picker still compile against an old SDK, but their
 // dependencies (flutter_plugin_android_lifecycle) require compileSdk 36+.
-// Raise every library plugin to at least 36. Must be registered before
-// evaluationDependsOn below, otherwise afterEvaluate is too late.
+// finalizeDsl runs after the plugin's own build script but before AGP reads
+// compileSdk, so it is neither overwritten nor "too late" (AGP 9).
 subprojects {
     plugins.withId("com.android.library") {
-        afterEvaluate {
-            extensions.configure<com.android.build.api.dsl.LibraryExtension> {
-                val current: Int = compileSdk ?: 0
+        extensions.configure<com.android.build.api.variant.LibraryAndroidComponentsExtension>("androidComponents") {
+            finalizeDsl { library ->
+                val current: Int = library.compileSdk ?: 0
                 if (current < 36) {
-                    compileSdk = 36
+                    library.compileSdk = 36
                 }
             }
         }
