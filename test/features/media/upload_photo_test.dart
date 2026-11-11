@@ -30,6 +30,15 @@ class FakeApi extends ApiClient {
   }
 }
 
+class FailingAdapter implements HttpClientAdapter {
+  @override
+  Future<ResponseBody> fetch(RequestOptions options, Stream<Uint8List>? requestStream, Future<void>? cancelFuture) async =>
+      ResponseBody.fromString('boom', 500);
+
+  @override
+  void close({bool force = false}) {}
+}
+
 class RecordingAdapter implements HttpClientAdapter {
   RequestOptions? request;
   List<int> body = <int>[];
@@ -54,6 +63,18 @@ class RecordingAdapter implements HttpClientAdapter {
 }
 
 void main() {
+  test('a failing storage PUT is reported with its step and HTTP status', () async {
+    final Dio storage = Dio()..httpClientAdapter = FailingAdapter();
+    await expectLater(
+      MediaRepository(FakeApi(), storage: storage).uploadPhoto(Uint8List.fromList(<int>[1]), 'image/jpeg'),
+      throwsA(
+        isA<MediaUploadException>()
+            .having((MediaUploadException e) => e.step, 'step', 'storage')
+            .having((MediaUploadException e) => e.statusCode, 'statusCode', 500),
+      ),
+    );
+  });
+
   test('uploadPhoto asks for a ticket, PUTs the bytes to the bucket without API headers, then completes', () async {
     final FakeApi api = FakeApi()..setAuthToken('secret-jwt');
     final RecordingAdapter adapter = RecordingAdapter();
