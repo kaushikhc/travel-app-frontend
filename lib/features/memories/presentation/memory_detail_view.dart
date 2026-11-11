@@ -1,9 +1,11 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/router/auth_redirect.dart';
 import '../../../core/time/api_time.dart';
+import '../../community/data/community_repository.dart';
 import '../../trip/data/trip_repository.dart';
 import '../../trip/domain/trip_model.dart';
 import '../data/memory_repository.dart';
@@ -22,6 +24,12 @@ class MemoryDetailView extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Memory'),
         actions: <Widget>[
+          if (memory.hasValue && memory.requireValue.visibility != MemoryVisibility.private)
+            IconButton(
+              icon: const Icon(Icons.share_outlined),
+              tooltip: 'Share to Community',
+              onPressed: () => _share(context, ref),
+            ),
           if (memory.hasValue)
             IconButton(
               icon: const Icon(Icons.edit_outlined),
@@ -54,6 +62,19 @@ class MemoryDetailView extends ConsumerWidget {
         data: (MemoryModel m) => _content(context, ref, m),
       ),
     );
+  }
+
+  Future<void> _share(BuildContext context, WidgetRef ref) async {
+    String message = 'Shared to Community.';
+    try {
+      await ref.read(communityRepositoryProvider).shareMemory(memoryId);
+    } catch (e) {
+      final dynamic data = e is DioException ? e.response?.data : null;
+      message = data is Map<String, dynamic> && data['message'] is String
+          ? data['message'] as String
+          : 'Could not share the memory. Please try again.';
+    }
+    if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
