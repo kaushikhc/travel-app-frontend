@@ -9,6 +9,7 @@ abstract final class AppRoutes {
   static const String profileSetup = '/profile-setup';
   static const String chooseUsername = '/choose-username';
   static const String home = '/home';
+  static const String newTrip = '/trips/new';
 }
 
 /// Where the router should send the user, or null to stay. A pure function of the current state
