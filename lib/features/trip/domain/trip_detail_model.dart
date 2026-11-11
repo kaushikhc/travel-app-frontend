@@ -46,21 +46,42 @@ class TripPlaceItem {
 @immutable
 class StayItem {
   final int id;
+  final int? placeId;
   final String name;
   final String? type;
   final DateTime? checkIn;
   final DateTime? checkOut;
+  final String? bookingReference;
+  final String? notes;
 
-  const StayItem({required this.id, required this.name, this.type, this.checkIn, this.checkOut});
+  /// Free-form JSON the app does not edit; kept so a save sends it back unchanged (the backend
+  /// replaces the whole stay on PUT).
+  final Object? metadata;
+
+  const StayItem({
+    required this.id,
+    this.placeId,
+    required this.name,
+    this.type,
+    this.checkIn,
+    this.checkOut,
+    this.bookingReference,
+    this.notes,
+    this.metadata,
+  });
 
   factory StayItem.fromJson(Map<String, dynamic> json) {
     final String own = json['name'] as String? ?? '';
     return StayItem(
       id: (json['id'] as num).toInt(),
+      placeId: _placeId(json['place']),
       name: own.isNotEmpty ? own : _placeName(json['place']),
       type: json['type'] as String?,
       checkIn: ApiTime.parseUtc(json['checkIn'] as String?),
       checkOut: ApiTime.parseUtc(json['checkOut'] as String?),
+      bookingReference: json['bookingReference'] as String?,
+      notes: json['notes'] as String?,
+      metadata: json['metadata'],
     );
   }
 }
@@ -70,22 +91,47 @@ class StayItem {
 class TransportItem {
   final int id;
   final String? type;
+  final int? fromPlaceId;
+  final int? toPlaceId;
   final String from;
   final String to;
   final DateTime? departure;
   final DateTime? arrival;
   final String? provider;
+  final String? referenceNumber;
+  final String? notes;
 
-  const TransportItem({required this.id, required this.from, required this.to, this.type, this.departure, this.arrival, this.provider});
+  /// Free-form JSON the app does not edit; sent back unchanged on save.
+  final Object? metadata;
+
+  const TransportItem({
+    required this.id,
+    required this.from,
+    required this.to,
+    this.fromPlaceId,
+    this.toPlaceId,
+    this.type,
+    this.departure,
+    this.arrival,
+    this.provider,
+    this.referenceNumber,
+    this.notes,
+    this.metadata,
+  });
 
   factory TransportItem.fromJson(Map<String, dynamic> json) => TransportItem(
         id: (json['id'] as num).toInt(),
         type: json['type'] as String?,
+        fromPlaceId: _placeId(json['departurePlace']),
+        toPlaceId: _placeId(json['arrivalPlace']),
         from: _placeName(json['departurePlace']),
         to: _placeName(json['arrivalPlace']),
         departure: ApiTime.parseUtc(json['departureDatetime'] as String?),
         arrival: ApiTime.parseUtc(json['arrivalDatetime'] as String?),
         provider: json['provider'] as String?,
+        referenceNumber: json['referenceNumber'] as String?,
+        notes: json['notes'] as String?,
+        metadata: json['metadata'],
       );
 }
 

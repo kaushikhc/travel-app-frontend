@@ -43,6 +43,9 @@ void main() {
   });
 
   testWidgets('shows trip header and sections with empty states', (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(900, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     await tester.pumpWidget(_app(TripDetail(
       trip: const TripModel(id: 5, name: 'Kerala', status: TripStatus.upcoming, description: 'Backwaters', tags: <String>['beach']),
       places: const <TripPlaceItem>[TripPlaceItem(id: 1, name: 'Fort Kochi')],

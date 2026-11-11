@@ -10,6 +10,7 @@ import '../data/trip_repository.dart';
 import '../domain/trip_detail_model.dart';
 import '../domain/trip_model.dart';
 import 'widgets/itinerary_dialogs.dart';
+import 'widgets/stay_transport_dialogs.dart';
 
 /// Read-only detail of one trip: header, then places, stays, transport and visits.
 class TripDetailView extends ConsumerWidget {
@@ -161,16 +162,26 @@ class TripDetailView extends ConsumerWidget {
         }).toList(growable: false),
             onAdd: () => _edit(context, ref, () => showTripPlaceDialog(context, tripId: tripId)), addLabel: 'Add place'),
         _section(theme, 'Stays', 'No stays added yet.', d.stays.map((StayItem s) {
-          return _row(s.name, _range(s.checkIn, s.checkOut));
-        }).toList(growable: false)),
+          return _row(s.name, _range(s.checkIn, s.checkOut),
+              menu: _menu(
+                onEdit: () => _edit(context, ref, () => showStayDialog(context, tripId: tripId, existing: s)),
+                onDelete: () => _remove(context, ref, 'this stay', () => ref.read(tripRepositoryProvider).deleteStay(tripId, s.id)),
+              ));
+        }).toList(growable: false),
+            onAdd: () => _edit(context, ref, () => showStayDialog(context, tripId: tripId)), addLabel: 'Add stay'),
         _section(theme, 'Transport', 'No transport added yet.', d.transports.map((TransportItem t) {
           final String route = <String>[t.from, t.to].where((String x) => x.isNotEmpty).join(' → ');
           final String title = route.isNotEmpty ? route : (t.type == null ? 'Transport' : _title(t.type!));
           return _row(title, <String>[
             if (t.provider?.isNotEmpty == true) t.provider!,
             _range(t.departure, t.arrival),
-          ].where((String x) => x.isNotEmpty).join(' · '));
-        }).toList(growable: false)),
+          ].where((String x) => x.isNotEmpty).join(' · '),
+              menu: _menu(
+                onEdit: () => _edit(context, ref, () => showTransportDialog(context, tripId: tripId, existing: t)),
+                onDelete: () => _remove(context, ref, 'this transport', () => ref.read(tripRepositoryProvider).deleteTransport(tripId, t.id)),
+              ));
+        }).toList(growable: false),
+            onAdd: () => _edit(context, ref, () => showTransportDialog(context, tripId: tripId)), addLabel: 'Add transport'),
         _section(theme, 'Visits', 'No visits logged yet.', d.visits.map((VisitItem v) {
           return _row(v.name, v.visitedAt == null ? '' : ApiTime.formatDateTime(v.visitedAt!),
               menu: _menu(
