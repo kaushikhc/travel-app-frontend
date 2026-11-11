@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/api_client.dart';
 import '../../auth/presentation/auth_state.dart';
 import '../domain/journey_models.dart';
+import '../domain/trip_memory_view_model.dart';
 
 class JourneyRepository {
   final ApiClient _apiClient;
@@ -27,6 +28,10 @@ class JourneyRepository {
   Future<List<PastTrip>> fetchPastTrips() async =>
       _maps((await _apiClient.get('/history/trips')).data).map(PastTrip.fromJson).toList(growable: false);
 
+  /// GET /api/history/trips/{id}: the Trip Memory View in one response.
+  Future<TripMemoryViewData> fetchTripMemoryView(int id) async =>
+      TripMemoryViewData.fromJson((await _apiClient.get('/history/trips/$id')).data as Map<String, dynamic>);
+
   /// GET /api/history/map (GeoJSON)
   Future<MapData> fetchMap() async => MapData.fromJson((await _apiClient.get('/history/map')).data as Map<String, dynamic>);
 
@@ -50,3 +55,5 @@ final visitedCountriesProvider =
     FutureProvider.autoDispose<List<VisitedCountry>>((Ref ref) => _authed(ref, (JourneyRepository r) => r.fetchCountries()));
 final pastTripsProvider = FutureProvider.autoDispose<List<PastTrip>>((Ref ref) => _authed(ref, (JourneyRepository r) => r.fetchPastTrips()));
 final journeyMapProvider = FutureProvider.autoDispose<MapData>((Ref ref) => _authed(ref, (JourneyRepository r) => r.fetchMap()));
+final tripMemoryViewProvider = FutureProvider.autoDispose.family<TripMemoryViewData, int>(
+    (Ref ref, int id) => _authed(ref, (JourneyRepository r) => r.fetchTripMemoryView(id)));

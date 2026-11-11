@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import '../../../core/router/auth_redirect.dart';
 import '../../../core/time/api_time.dart';
 import '../data/journey_repository.dart';
 import '../domain/journey_models.dart';
@@ -149,7 +150,7 @@ class _PastTripsTab extends ConsumerWidget {
                             '${t.memories} memories',
                           ].join(' · ')),
                           trailing: const Icon(Icons.chevron_right),
-                          onTap: () => context.push('/trips/${t.id}'),
+                          onTap: () => context.push(AppRoutes.tripMemoryView(t.id)),
                         ),
                       ),
                   ],
