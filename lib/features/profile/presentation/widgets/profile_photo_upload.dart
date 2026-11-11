@@ -36,5 +36,8 @@ Future<UploadedPhoto?> pickAndUploadPhoto(WidgetRef ref) async {
 }
 
 /// The message to show when [pickAndUploadPhoto] fails.
-String photoUploadError(Object error) =>
-    error is FormatException ? error.message : 'Could not upload the photo. Please try again.';
+String photoUploadError(Object error) {
+  if (error is FormatException) return error.message;
+  if (error is MediaUploadException) return 'Could not upload the photo. $error';
+  return 'Could not upload the photo. Please try again.';
+}
