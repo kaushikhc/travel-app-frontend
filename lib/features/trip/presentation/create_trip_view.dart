@@ -231,11 +231,18 @@ class _CreateTripViewState extends ConsumerState<CreateTripView> {
   }
 
   Widget _dateButton(String label, DateTime? value, VoidCallback onPick, VoidCallback onClear) {
-    return OutlinedButton.icon(
-      onPressed: onPick,
-      icon: const Icon(Icons.calendar_today, size: 18),
-      label: Text(value == null ? label : _fmt.format(value), overflow: TextOverflow.ellipsis),
-      onLongPress: value == null ? null : onClear,
+    return Row(
+      children: <Widget>[
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: onPick,
+            icon: const Icon(Icons.calendar_today, size: 18),
+            label: Text(value == null ? label : _fmt.format(value), overflow: TextOverflow.ellipsis),
+          ),
+        ),
+        if (value != null)
+          IconButton(icon: const Icon(Icons.close, size: 18), tooltip: 'Clear $label', onPressed: onClear),
+      ],
     );
   }
 }
