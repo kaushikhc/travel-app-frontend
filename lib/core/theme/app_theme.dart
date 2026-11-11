@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
   // Vibrant Harmonious Color Tokens
@@ -26,7 +25,7 @@ class AppTheme {
         surface: darkSurface,
         error: accentCoral,
       ),
-      textTheme: GoogleFonts.outfitTextTheme(ThemeData.dark().textTheme).copyWith(
+      textTheme: ThemeData.dark().textTheme.apply(fontFamily: 'Outfit').copyWith(
         displayLarge: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
         titleLarge: const TextStyle(fontWeight: FontWeight.w600, color: Colors.white),
         bodyLarge: const TextStyle(color: Color(0xFFE2E8F0)),
@@ -58,7 +57,7 @@ class AppTheme {
         surface: lightSurface,
         error: accentCoral,
       ),
-      textTheme: GoogleFonts.outfitTextTheme(ThemeData.light().textTheme).copyWith(
+      textTheme: ThemeData.light().textTheme.apply(fontFamily: 'Outfit').copyWith(
         displayLarge: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
         titleLarge: const TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF0F172A)),
         bodyLarge: const TextStyle(color: Color(0xFF334155)),
