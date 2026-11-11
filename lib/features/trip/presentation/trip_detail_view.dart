@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import '../../../core/router/auth_redirect.dart';
 import '../../../core/time/api_time.dart';
 import '../../media/data/media_repository.dart';
 import '../data/trip_repository.dart';
@@ -17,7 +19,23 @@ class TripDetailView extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final AsyncValue<TripDetail> detail = ref.watch(tripDetailProvider(tripId));
     return Scaffold(
-      appBar: AppBar(title: const Text('Trip')),
+      appBar: AppBar(
+        title: const Text('Trip'),
+        actions: <Widget>[
+          if (detail.hasValue) ...<Widget>[
+            IconButton(
+              icon: const Icon(Icons.edit_outlined),
+              tooltip: 'Edit trip',
+              onPressed: () => context.push(AppRoutes.editTrip(tripId), extra: detail.requireValue.trip),
+            ),
+            IconButton(
+              icon: const Icon(Icons.delete_outline),
+              tooltip: 'Delete trip',
+              onPressed: () => _confirmDelete(context, ref),
+            ),
+          ],
+        ],
+      ),
       body: detail.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (Object e, StackTrace _) => Center(
@@ -33,6 +51,32 @@ class TripDetailView extends ConsumerWidget {
         data: (TripDetail d) => _content(context, ref, d),
       ),
     );
+  }
+
+  Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
+    final bool? ok = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext c) => AlertDialog(
+        title: const Text('Delete this trip?'),
+        content: const Text('The trip and everything on it (places, stays, transport, visits, memories) will be removed. This cannot be undone.'),
+        actions: <Widget>[
+          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('Delete')),
+        ],
+      ),
+    );
+    if (ok != true || !context.mounted) return;
+    try {
+      await ref.read(tripRepositoryProvider).deleteTrip(tripId);
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not delete the trip. Please try again.')));
+      }
+      return;
+    }
+    ref.invalidate(homeOverviewProvider);
+    ref.invalidate(travelStatsProvider);
+    if (context.mounted) context.go(AppRoutes.home);
   }
 
   Widget _content(BuildContext context, WidgetRef ref, TripDetail d) {

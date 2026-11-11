@@ -8,6 +8,9 @@ import '../../features/navigation/presentation/main_scaffold.dart';
 import '../../features/trip/presentation/trips_view.dart';
 import '../../features/trip/presentation/trip_detail_view.dart';
 import '../../features/trip/presentation/create_trip_view.dart';
+import '../../features/trip/data/trip_repository.dart';
+import '../../features/trip/domain/trip_detail_model.dart';
+import '../../features/trip/domain/trip_model.dart';
 import '../../features/memories/presentation/memories_view.dart';
 import '../../features/capture/presentation/capture_view.dart';
 import '../../features/explore/presentation/explore_view.dart';
@@ -92,6 +95,17 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/trips/:id',
             builder: (BuildContext context, GoRouterState state) =>
                 TripDetailView(tripId: int.tryParse(state.pathParameters['id'] ?? '') ?? 0),
+            routes: <RouteBase>[
+              GoRoute(
+                path: 'edit',
+                builder: (BuildContext context, GoRouterState state) {
+                  final Object? extra = state.extra;
+                  return extra is TripModel
+                      ? CreateTripView(trip: extra)
+                      : _LoadedTripEdit(tripId: int.tryParse(state.pathParameters['id'] ?? '') ?? 0);
+                },
+              ),
+            ],
           ),
           GoRoute(
             path: '/memories',
@@ -143,6 +157,26 @@ class _LoadingScreen extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Fallback when `/trips/:id/edit` is opened without the trip (e.g. a web reload): loads it first.
+class _LoadedTripEdit extends ConsumerWidget {
+  final int tripId;
+
+  const _LoadedTripEdit({required this.tripId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final AsyncValue<TripDetail> detail = ref.watch(tripDetailProvider(tripId));
+    return detail.when(
+      data: (TripDetail d) => CreateTripView(trip: d.trip),
+      loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),
+      error: (Object e, StackTrace _) => Scaffold(
+        appBar: AppBar(),
+        body: const Center(child: Text('Could not load this trip.')),
       ),
     );
   }
