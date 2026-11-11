@@ -1,31 +1,44 @@
+import 'package:flutter/foundation.dart';
+
+/// A place from `PlaceResponse`. The API has no photo or rating for places.
+@immutable
 class PlaceModel {
-  final String id;
+  final int id;
   final String name;
-  final String country;
-  final String category;
-  final double rating;
-  final String imageUrl;
-  final String description;
+  final String? type;
+  final double? latitude;
+  final double? longitude;
+  final String? address;
+  final String? isoCode;
+  final int? countryId;
 
   const PlaceModel({
     required this.id,
     required this.name,
-    required this.country,
-    required this.category,
-    required this.rating,
-    required this.imageUrl,
-    required this.description,
+    this.type,
+    this.latitude,
+    this.longitude,
+    this.address,
+    this.isoCode,
+    this.countryId,
   });
 
   factory PlaceModel.fromJson(Map<String, dynamic> json) {
     return PlaceModel(
-      id: json['id'] as String,
-      name: json['name'] as String,
-      country: json['country'] as String,
-      category: json['category'] as String,
-      rating: (json['rating'] as num).toDouble(),
-      imageUrl: json['imageUrl'] as String,
-      description: json['description'] as String,
+      id: (json['id'] as num).toInt(),
+      name: json['name'] as String? ?? '',
+      type: json['type'] as String?,
+      latitude: (json['latitude'] as num?)?.toDouble(),
+      longitude: (json['longitude'] as num?)?.toDouble(),
+      address: json['address'] as String?,
+      isoCode: json['isoCode'] as String?,
+      countryId: (json['countryId'] as num?)?.toInt(),
     );
   }
+
+  /// Type and address on one line, for list rows.
+  String get subtitle => <String>[
+        if (type != null && type!.trim().isNotEmpty) type!.trim(),
+        if (address != null && address!.trim().isNotEmpty) address!.trim(),
+      ].join(' · ');
 }

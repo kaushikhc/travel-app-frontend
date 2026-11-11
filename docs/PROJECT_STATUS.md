@@ -1,6 +1,6 @@
 # Project status: Flutter client
 
-Last updated: 2026-11-11 (memories: edit a saved memory, camera in Capture)
+Last updated: 2026-11-11 (memories: edit a saved memory, camera in Capture; explore and wishlist)
 
 ## Where things stand
 - Scaffold with feature folders: auth, profile, trip, memories, capture, explore, navigation.
@@ -18,8 +18,9 @@ Last updated: 2026-11-11 (memories: edit a saved memory, camera in Capture)
 - Capture tab is now a form (works on web, the old "mobile only" block is gone): multiple photos (file_picker, uploaded with `MediaRepository.uploadPhoto` on save, each only once across retries), title, note, trip picker (`tripsProvider`, `GET /trips`), tags, visibility (PRIVATE, FRIENDS_ONLY, PUBLIC). The backend needs a title, a note or a photo, and a trip: the picker defaults to the ACTIVE trip, and a trip is required in the form. `capturedAt` is sent as a UTC offset-less `LocalDateTime` (`ApiTime.formatApi`). On save it goes to the Memories tab.
 - Camera in Capture: a "Take photo" button next to "Add photos" (`image_picker`, `ImageSource.camera`), shown only on Android (`cameraPickerSupported`; hidden on web and iOS, which is on hold). No manifest change: image_picker uses the system camera intent, so no CAMERA permission is needed.
 - Edit memory: `CaptureView(memory: ...)` is the capture form in edit mode (title "Edit memory", button "Save"), prefilled with title, note, tags and visibility; existing photos show with a remove button, new ones come from the gallery or camera. Route `/memories/:id/edit` (`AppRoutes.editMemory`, memory passed as `extra`, else loaded by `memoryDetailProvider`); Edit icon on memory detail. `MemoryRepository.updateMemory` sends `PATCH /api/memories/{id}` with title, note (trimmed; `""` clears), visibility, tags and `mediaIds` (kept existing ids plus newly uploaded ones, in that order). The server replaces tags and mediaIds wholesale and deletes removed media that nothing else uses; `capturedAt`, `visitId`, `placeId` are never sent (omitted = unchanged; a null would clear visit and place). The trip is shown but locked: PATCH has no trip field. Saving invalidates `memoryDetailProvider(id)` and `memoriesProvider`, then pops.
-- Mock data only: explore. Trip covers: `TripResponse` carries only `coverMediaId` (Sam's call); the app fetches the signed link with `GET /api/media/{id}` (`mediaUrlProvider`), lazily per card, reused for 50 minutes because links expire after the backend's 1-hour download TTL. Add a batch endpoint only if a screen ever shows many covers.
-- Tests: 55 (memory model, create body, update body (PATCH), edit-memory prefill, list/detail/delete paths, list view with tag filter, empty state, create and update trip repository, edit prefill, tags and form, trip detail models and view, choose username, photo upload, birthday picker and dates, media link caching, router redirect rules, auth notifier, time parsing, countries, time zone sync, trip model, Home view, smoke test). `flutter analyze` clean; `flutter build web` OK. Android build not yet verified on a device.
+- Explore (`lib/features/explore`): `ExploreRepository` (`GET /explore/categories`, `GET /explore/places/category/{name}` (by category name, server default limit 50), `GET /places?q=` (400 under 2 characters, so the app searches from 2), `GET /places/{id}`, `GET|POST /explore/wishlist` (`{placeId}`, 409 if already saved), `DELETE /explore/wishlist/{itemId}` (the item id, not the place id), `POST /explore/wishlist/{itemId}/plan` (`{tripId, plannedDate?, notes?, removeFromWishlist}`, 409 if the trip already plans it)). Providers: `categoriesProvider`, `placesByCategoryProvider(name)`, `placeSearchProvider(query)`, `placeDetailProvider(id)`, `wishlistProvider`. Explore tab has Discover (debounced search field, category chips, first category selected by default as there is no "all" endpoint, loading/error/empty states, heart toggle per place from `WishlistButton`) and Wishlist (remove, "Plan into trip": pick a trip from `tripsProvider`, plan keeps the item on the wishlist, invalidates `tripDetailProvider(tripId)` and the wishlist, snackbar; trips that already plan the place are disabled). Places have no photo or rating in the API, so rows are text only. Place detail route `/explore/places/:id` (`AppRoutes.placeDetail`). Community (`/explore/community/friends`) not built.
+- Trip covers: `TripResponse` carries only `coverMediaId` (Sam's call); the app fetches the signed link with `GET /api/media/{id}` (`mediaUrlProvider`), lazily per card, reused for 50 minutes because links expire after the backend's 1-hour download TTL. Add a batch endpoint only if a screen ever shows many covers.
+- Tests: 59 (explore, memories incl. update body and edit prefill, trips, auth, profile, router, time, Home, smoke). `flutter analyze` clean. Android build not yet verified on a device.
 
 ## Auth design (PR "Auth rework")
 - `AuthNotifier` (`features/auth/presentation/auth_state.dart`) owns the session: states checking, unauthenticated, loading, authenticated, error. At start it restores the token from `TokenStorage` (`core/storage`, flutter_secure_storage) and checks it with `/auth/check`: rejected tokens are dropped, an unreachable server keeps the session.
@@ -31,13 +32,19 @@ Last updated: 2026-11-11 (memories: edit a saved memory, camera in Capture)
 ## Known gaps against backend v1
 1. Done in the auth rework: code exchange, persisted token, real user, side-effect-free router.
 2. No global 401 handling yet: if a token expires mid-session, calls fail until the next start. Add a dio interceptor that signs out on 401.
-3. No v1 features yet beyond Home: trip detail and create/edit, memories, wishlist, collections, community, statistics, timeline.
+3. Not built yet: collections, community, timeline.
 
 ## Plan (one PR each)
 1. Done: backend `POST /api/auth/google` (kaushikhc/travel-app#35, merged).
 2. Done: auth rework (#1): explicit auth state machine, side-effect-free router with a dedicated web callback route, token in `flutter_secure_storage`, native Google sign-in on Android, code exchange on web, real user from `/profile/me`, redirect tests.
 3. Done: profile `timeZone` sync, `ApiTime` UTC helpers, countries from the API.
-4. Real data, one screen at a time: Home, trip detail (read-only) and trip create done; trip edit done; Memories/Capture done (list, capture, detail, delete); video capture, moving a memory to another trip (needs backend support), verify the camera on a real Android device, Explore/Wishlist, Community.
+4. Real data, one screen at a time: done for Home, trip detail/create/edit/delete, Memories/Capture (incl. edit and camera), Explore/Wishlist (browse, search, wishlist, plan into trip, place detail).
+5. Remaining MVP screens, in this order:
+   1. Trip itinerary on trip detail: planned places (`/api/trips/{id}/places`), visits, transport and accommodation (list, add, edit, delete).
+   2. Community: share a memory as a post (`POST /api/posts/share/{memoryId}`), friends feed (`/api/explore/community/friends`), likes/comments as the backend allows.
+   3. Statistics and visited-countries map (`/api/statistics/me`), plus History/Remember (`HistoryController`).
+   4. Other travelers' public profiles (owner-only fields hidden).
+   Cross-cutting before MVP: dio 401 interceptor (log out on expired token), verify Android build and camera on a real device, video capture, moving a memory to another trip (needs a backend field), replace remaining Unsplash mocks.
 
 ## Branching
 Until the MVP is ready, PRs go to `main`. After that, all development goes to `develop` only (Sam, 2026-11-11).
