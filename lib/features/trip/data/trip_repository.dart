@@ -133,6 +133,116 @@ class TripRepository {
     await _apiClient.delete('/trips/$tripId/visits/$id');
   }
 
+  /// POST (new) or PUT (when [id] is set) on /api/trips/{tripId}/accommodations. The backend replaces the
+  /// whole stay on PUT, so [metadata] is passed back as loaded.
+  Future<void> saveStay(
+    int tripId, {
+    int? id,
+    required String type,
+    required int placeId,
+    String? name,
+    required DateTime checkIn,
+    DateTime? checkOut,
+    String? bookingReference,
+    String? notes,
+    Object? metadata,
+  }) async {
+    final Map<String, dynamic> body = stayBody(
+        type: type, placeId: placeId, name: name, checkIn: checkIn, checkOut: checkOut, bookingReference: bookingReference, notes: notes, metadata: metadata);
+    if (id == null) {
+      await _apiClient.post('/trips/$tripId/accommodations', data: body);
+    } else {
+      await _apiClient.put('/trips/$tripId/accommodations/$id', data: body);
+    }
+  }
+
+  static String? _text(String? v) => v == null || v.trim().isEmpty ? null : v.trim();
+
+  static Map<String, dynamic> stayBody({
+    required String type,
+    required int placeId,
+    String? name,
+    required DateTime checkIn,
+    DateTime? checkOut,
+    String? bookingReference,
+    String? notes,
+    Object? metadata,
+  }) =>
+      <String, dynamic>{
+        'type': type,
+        'placeId': placeId,
+        'name': _text(name),
+        'checkIn': ApiTime.formatApi(checkIn),
+        'checkOut': checkOut == null ? null : ApiTime.formatApi(checkOut),
+        'bookingReference': _text(bookingReference),
+        'notes': _text(notes),
+        'metadata': metadata,
+      };
+
+  /// DELETE /api/trips/{tripId}/accommodations/{id}
+  Future<void> deleteStay(int tripId, int id) async {
+    await _apiClient.delete('/trips/$tripId/accommodations/$id');
+  }
+
+  /// POST (new) or PUT (when [id] is set) on /api/trips/{tripId}/transports. Both ends are optional.
+  Future<void> saveTransport(
+    int tripId, {
+    int? id,
+    required String type,
+    int? fromPlaceId,
+    int? toPlaceId,
+    required DateTime departure,
+    DateTime? arrival,
+    String? provider,
+    String? referenceNumber,
+    String? notes,
+    Object? metadata,
+  }) async {
+    final Map<String, dynamic> body = transportBody(
+        type: type,
+        fromPlaceId: fromPlaceId,
+        toPlaceId: toPlaceId,
+        departure: departure,
+        arrival: arrival,
+        provider: provider,
+        referenceNumber: referenceNumber,
+        notes: notes,
+        metadata: metadata);
+    if (id == null) {
+      await _apiClient.post('/trips/$tripId/transports', data: body);
+    } else {
+      await _apiClient.put('/trips/$tripId/transports/$id', data: body);
+    }
+  }
+
+  static Map<String, dynamic> transportBody({
+    required String type,
+    int? fromPlaceId,
+    int? toPlaceId,
+    required DateTime departure,
+    DateTime? arrival,
+    String? provider,
+    String? referenceNumber,
+    String? notes,
+    Object? metadata,
+  }) =>
+      <String, dynamic>{
+        'type': type,
+        'departurePlaceId': fromPlaceId,
+        'arrivalPlaceId': toPlaceId,
+        'departureDatetime': ApiTime.formatApi(departure),
+        'arrivalDatetime': arrival == null ? null : ApiTime.formatApi(arrival),
+        'provider': _text(provider),
+        'referenceNumber': _text(referenceNumber),
+        'notes': _text(notes),
+        'metadata': metadata,
+      };
+
+  /// DELETE /api/trips/{tripId}/transports/{id}
+  Future<void> deleteTransport(int tripId, int id) async {
+    await _apiClient.delete('/trips/$tripId/transports/$id');
+  }
+
   Future<List<T>> _list<T>(String path, T Function(Map<String, dynamic>) parse) async =>
       ((await _apiClient.get(path)).data as List<dynamic>)
           .whereType<Map<String, dynamic>>()
