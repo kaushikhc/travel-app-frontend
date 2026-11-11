@@ -1,166 +1,185 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
-class MemoriesView extends StatelessWidget {
+import '../../../core/router/auth_redirect.dart';
+import '../../../core/time/api_time.dart';
+import '../../trip/data/trip_repository.dart';
+import '../../trip/domain/trip_model.dart';
+import '../data/memory_repository.dart';
+import '../domain/memory_model.dart';
+import 'widgets/memory_photo.dart';
+
+class MemoriesView extends ConsumerStatefulWidget {
   const MemoriesView({super.key});
 
   @override
+  ConsumerState<MemoriesView> createState() => _MemoriesViewState();
+}
+
+class _MemoriesViewState extends ConsumerState<MemoriesView> {
+  String? _tag;
+
+  Future<void> _refresh() async {
+    ref.invalidate(tripsProvider);
+    ref.invalidate(memoriesProvider);
+    try {
+      await ref.read(memoriesProvider.future);
+    } catch (_) {
+      // The error state shows it.
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    // Mock data for beautiful travel memories
-    final memories = [
-      {
-        'title': 'Golden hour in Kyoto',
-        'location': 'Kyoto, Japan',
-        'date': 'Oct 2025',
-        'imageUrl': 'https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?auto=format&fit=crop&w=600&q=80',
-      },
-      {
-        'title': 'Sunset over Santorini',
-        'location': 'Santorini, Greece',
-        'date': 'Aug 2025',
-        'imageUrl': 'https://images.unsplash.com/photo-1533105079780-92b9be482077?auto=format&fit=crop&w=600&q=80',
-      },
-      {
-        'title': 'Exploring Swiss Alps',
-        'location': 'Zermatt, Switzerland',
-        'date': 'Jan 2026',
-        'imageUrl': 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=600&q=80',
-      },
-      {
-        'title': 'Strolling in Paris',
-        'location': 'Paris, France',
-        'date': 'Jun 2025',
-        'imageUrl': 'https://images.unsplash.com/photo-1502602898657-3e91760cbb34?auto=format&fit=crop&w=600&q=80',
-      },
-      {
-        'title': 'Safari Adventure',
-        'location': 'Serengeti, Tanzania',
-        'date': 'Dec 2025',
-        'imageUrl': 'https://images.unsplash.com/photo-1516426122078-c23e76319801?auto=format&fit=crop&w=600&q=80',
-      },
-      {
-        'title': 'Neon lights of Seoul',
-        'location': 'Seoul, South Korea',
-        'date': 'Nov 2025',
-        'imageUrl': 'https://images.unsplash.com/photo-1538481199705-c710c4e965fc?auto=format&fit=crop&w=600&q=80',
-      },
-    ];
-
+    final AsyncValue<List<MemoryModel>> memories = ref.watch(memoriesProvider);
+    // Trip names are a nicety: if the trips fail to load the cards just omit them.
+    final Map<int, String> tripNames = <int, String>{
+      for (final TripModel t in ref.watch(tripsProvider).value ?? const <TripModel>[]) t.id: t.name,
+    };
     return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          'Travel Memories',
-          style: TextStyle(fontWeight: FontWeight.bold),
+      appBar: AppBar(title: const Text('Memories', style: TextStyle(fontWeight: FontWeight.bold))),
+      body: RefreshIndicator(
+        onRefresh: _refresh,
+        child: memories.when(
+          loading: () => ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            children: const <Widget>[SizedBox(height: 200), Center(child: CircularProgressIndicator())],
+          ),
+          error: (Object e, StackTrace _) => ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(24),
+            children: <Widget>[
+              const SizedBox(height: 120),
+              const Center(child: Text('Could not load your memories.')),
+              const SizedBox(height: 12),
+              Center(child: FilledButton(onPressed: _refresh, child: const Text('Retry'))),
+            ],
+          ),
+          data: (List<MemoryModel> list) => _content(context, list, tripNames),
         ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
-        child: Center(
-          child: Container(
-            constraints: const BoxConstraints(maxWidth: 1200),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Your Photobook',
-                  style: theme.textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: theme.colorScheme.primary,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Relive your best moments from around the globe.',
-                  style: theme.textTheme.bodyLarge?.copyWith(color: Colors.grey),
-                ),
-                const SizedBox(height: 24),
-                // Masonry-like Grid
-                GridView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: MediaQuery.of(context).size.width > 900
-                        ? 3
-                        : MediaQuery.of(context).size.width > 600
-                            ? 2
-                            : 1,
-                    crossAxisSpacing: 20,
-                    mainAxisSpacing: 20,
-                    childAspectRatio: 0.8,
-                  ),
-                  itemCount: memories.length,
-                  itemBuilder: (context, index) {
-                    final memory = memories[index];
-                    return Card(
-                      clipBehavior: Clip.antiAlias,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
+    );
+  }
+
+  Widget _content(BuildContext context, List<MemoryModel> all, Map<int, String> tripNames) {
+    if (all.isEmpty) {
+      return ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(24),
+        children: <Widget>[
+          const SizedBox(height: 120),
+          const Icon(Icons.photo_library_outlined, size: 48),
+          const SizedBox(height: 12),
+          const Center(child: Text('No memories yet. Capture your first one.')),
+          const SizedBox(height: 12),
+          Center(
+            child: FilledButton(onPressed: () => context.go(AppRoutes.capture), child: const Text('Capture a memory')),
+          ),
+        ],
+      );
+    }
+    final Map<String, String> tags = <String, String>{};
+    for (final MemoryModel m in all) {
+      for (final String t in m.tags) {
+        tags.putIfAbsent(t.toLowerCase(), () => t);
+      }
+    }
+    final String? selected = _tag != null && tags.containsKey(_tag) ? _tag : null;
+    final List<MemoryModel> shown = selected == null
+        ? all
+        : all.where((MemoryModel m) => m.tags.any((String t) => t.toLowerCase() == selected)).toList(growable: false);
+    final List<String> tagKeys = tags.keys.toList()..sort();
+    return CustomScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      slivers: <Widget>[
+        if (tagKeys.isNotEmpty)
+          SliverToBoxAdapter(
+            child: SizedBox(
+              height: 56,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                children: <Widget>[
+                  for (final String key in tagKeys)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: FilterChip(
+                        label: Text(tags[key]!),
+                        selected: selected == key,
+                        onSelected: (bool on) => setState(() => _tag = on ? key : null),
                       ),
-                      elevation: 3,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Image.network(
-                              memory['imageUrl']!,
-                              width: double.infinity,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) => Container(
-                                color: theme.colorScheme.primary.withValues(alpha: 0.1),
-                                child: const Icon(Icons.broken_image_outlined, size: 48),
-                              ),
-                            ),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.all(16.0),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        memory['title']!,
-                                        style: theme.textTheme.titleMedium?.copyWith(
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                    Text(
-                                      memory['date']!,
-                                      style: theme.textTheme.bodySmall?.copyWith(
-                                        color: theme.colorScheme.primary,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 6),
-                                Row(
-                                  children: [
-                                    const Icon(Icons.location_on_outlined, size: 14, color: Colors.grey),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      memory['location']!,
-                                      style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
-              ],
+                    ),
+                ],
+              ),
             ),
           ),
+        SliverPadding(
+          padding: const EdgeInsets.all(16),
+          sliver: SliverGrid.builder(
+            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+              maxCrossAxisExtent: 300,
+              mainAxisSpacing: 16,
+              crossAxisSpacing: 16,
+              childAspectRatio: 0.8,
+            ),
+            itemCount: shown.length,
+            itemBuilder: (BuildContext c, int i) => _MemoryCard(
+              memory: shown[i],
+              tripName: tripNames[shown[i].tripId],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _MemoryCard extends StatelessWidget {
+  final MemoryModel memory;
+  final String? tripName;
+
+  const _MemoryCard({required this.memory, required this.tripName});
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    final DateTime? date = memory.date;
+    final String subtitle = <String>[
+      ?tripName,
+      if (date != null) ApiTime.formatDate(date),
+    ].join(' · ');
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => context.push(AppRoutes.memoryDetail(memory.id)),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            Expanded(
+              child: memory.cover == null
+                  ? ColoredBox(
+                      color: theme.colorScheme.primaryContainer,
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Text(memory.note ?? '', maxLines: 6, overflow: TextOverflow.ellipsis),
+                      ),
+                    )
+                  : MemoryPhoto(media: memory.cover),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(memory.displayTitle,
+                      maxLines: 1, overflow: TextOverflow.ellipsis, style: theme.textTheme.titleSmall),
+                  if (subtitle.isNotEmpty)
+                    Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: theme.textTheme.bodySmall),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );

@@ -22,17 +22,6 @@ class MainScaffold extends ConsumerWidget {
   }
 
   void _onItemTapped(int index, BuildContext context, bool isDesktopOrWeb) {
-    if (isDesktopOrWeb && index == 2) {
-      ScaffoldMessenger.of(context).clearSnackBars();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('📷 Capture is only available on mobile devices.'),
-          duration: Duration(seconds: 2),
-        ),
-      );
-      return; // Do not navigate
-    }
-
     switch (index) {
       case 0:
         context.go('/home');
@@ -120,13 +109,10 @@ class MainScaffold extends ConsumerWidget {
                   selectedIcon: Icon(Icons.map_rounded),
                   label: Text('Memories'),
                 ),
-                NavigationRailDestination(
-                  icon: Icon(Icons.camera_alt_outlined, color: Colors.grey.withValues(alpha: 0.5)),
-                  selectedIcon: Icon(Icons.camera_alt_rounded, color: Colors.grey.withValues(alpha: 0.5)),
-                  label: Text(
-                    'Capture',
-                    style: TextStyle(color: Colors.grey.withValues(alpha: 0.6)),
-                  ),
+                const NavigationRailDestination(
+                  icon: Icon(Icons.camera_alt_outlined),
+                  selectedIcon: Icon(Icons.camera_alt_rounded),
+                  label: Text('Capture'),
                 ),
                 const NavigationRailDestination(
                   icon: Icon(Icons.explore_outlined),
