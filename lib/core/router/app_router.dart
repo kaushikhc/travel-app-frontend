@@ -7,6 +7,8 @@ import '../../features/auth/presentation/login_view.dart';
 import '../../features/navigation/presentation/main_scaffold.dart';
 import '../../features/journey/presentation/journey_view.dart';
 import '../../features/journey/presentation/trip_memory_view.dart';
+import '../../features/community/data/community_repository.dart';
+import '../../features/community/presentation/connections_view.dart';
 import '../../features/community/presentation/traveler_view.dart';
 import '../../features/collections/presentation/collections_view.dart';
 import '../../features/trip/presentation/trips_view.dart';
@@ -120,6 +122,14 @@ final routerProvider = Provider<GoRouter>((ref) {
                 },
               ),
             ],
+          ),
+          GoRoute(
+            path: AppRoutes.followers,
+            builder: (BuildContext context, GoRouterState state) => const ConnectionsView(kind: ConnectionKind.followers),
+          ),
+          GoRoute(
+            path: AppRoutes.following,
+            builder: (BuildContext context, GoRouterState state) => const ConnectionsView(kind: ConnectionKind.following),
           ),
           GoRoute(
             path: '/travelers/:id',
