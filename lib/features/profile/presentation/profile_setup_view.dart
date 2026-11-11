@@ -1,10 +1,10 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'profile_state.dart';
 import '../../places/presentation/country_picker.dart';
+import 'widgets/birthday_picker.dart';
+import 'widgets/profile_photo_upload.dart';
 
 /// Full-screen onboarding wizard shown when mandatory profile fields are empty.
 /// The user cannot navigate past this screen until all required fields are saved.
@@ -15,8 +15,7 @@ class ProfileSetupView extends ConsumerStatefulWidget {
   ConsumerState<ProfileSetupView> createState() => _ProfileSetupViewState();
 }
 
-class _ProfileSetupViewState extends ConsumerState<ProfileSetupView>
-    with SingleTickerProviderStateMixin {
+class _ProfileSetupViewState extends ConsumerState<ProfileSetupView> with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   late AnimationController _animCtrl;
   late Animation<double> _fadeAnim;
@@ -30,8 +29,10 @@ class _ProfileSetupViewState extends ConsumerState<ProfileSetupView>
   late TextEditingController _displayNameCtrl;
   late TextEditingController _bioCtrl;
   late TextEditingController _ageCtrl;
-  late TextEditingController _birthdayCtrl;
+  DateTime? _birthday;
   String? _photoUrl;
+  UploadedPhoto? _newPhoto;
+  bool _uploadingPhoto = false;
   bool _isSaving = false;
 
   int? _selectedCountryId;
@@ -46,12 +47,8 @@ class _ProfileSetupViewState extends ConsumerState<ProfileSetupView>
     _displayNameCtrl = TextEditingController();
     _bioCtrl = TextEditingController();
     _ageCtrl = TextEditingController();
-    _birthdayCtrl = TextEditingController();
 
-    _animCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 500),
-    );
+    _animCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 500));
     _fadeAnim = CurvedAnimation(parent: _animCtrl, curve: Curves.easeOut);
     _slideAnim = Tween<Offset>(
       begin: const Offset(0, 0.06),
@@ -65,7 +62,7 @@ class _ProfileSetupViewState extends ConsumerState<ProfileSetupView>
         _displayNameCtrl.text = profile.displayName;
         _bioCtrl.text = profile.bio ?? '';
         _ageCtrl.text = profile.age?.toString() ?? '';
-        _birthdayCtrl.text = profile.birthday ?? '';
+        _birthday = profile.birthday;
         _photoUrl = profile.photoUrl;
         _selectedCountryId = profile.homeCountryId;
       }
@@ -78,20 +75,20 @@ class _ProfileSetupViewState extends ConsumerState<ProfileSetupView>
     _displayNameCtrl.dispose();
     _bioCtrl.dispose();
     _ageCtrl.dispose();
-    _birthdayCtrl.dispose();
     _animCtrl.dispose();
     super.dispose();
   }
 
   Future<void> _pickPhoto() async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.image,
-      allowMultiple: false,
-    );
-    if (result != null && result.files.single.bytes != null) {
-      setState(() {
-        _photoUrl = 'data:image/jpeg;base64,${base64Encode(result.files.single.bytes!)}';
-      });
+    if (_uploadingPhoto) return;
+    setState(() => _uploadingPhoto = true);
+    try {
+      final UploadedPhoto? photo = await pickAndUploadPhoto(ref);
+      if (photo != null && mounted) setState(() => _newPhoto = photo);
+    } catch (e) {
+      if (mounted) _showError(photoUploadError(e));
+    } finally {
+      if (mounted) setState(() => _uploadingPhoto = false);
     }
   }
 
@@ -108,13 +105,15 @@ class _ProfileSetupViewState extends ConsumerState<ProfileSetupView>
       return;
     }
     setState(() => _isSaving = true);
-    final success = await ref.read(profileNotifierProvider.notifier).updateProfile(
+    final success = await ref
+        .read(profileNotifierProvider.notifier)
+        .updateProfile(
           displayName: _displayNameCtrl.text.trim(),
           bio: _bioCtrl.text.trim(),
           homeCountryId: _selectedCountryId!,
-          photoUrl: _photoUrl,
-          age: int.tryParse(_ageCtrl.text),
-          birthday: _birthdayCtrl.text.trim().isEmpty ? null : _birthdayCtrl.text.trim(),
+          photoMediaId: _newPhoto?.mediaId,
+          age: _birthday == null ? int.tryParse(_ageCtrl.text) : null,
+          birthday: _birthday,
         );
     setState(() => _isSaving = false);
     if (!success && mounted) {
@@ -144,16 +143,8 @@ class _ProfileSetupViewState extends ConsumerState<ProfileSetupView>
       body: Stack(
         children: [
           // Background gradient blobs
-          Positioned(
-            top: -100,
-            right: -80,
-            child: _buildBlob(_primary, 300),
-          ),
-          Positioned(
-            bottom: -80,
-            left: -60,
-            child: _buildBlob(_secondary, 260),
-          ),
+          Positioned(top: -100, right: -80, child: _buildBlob(_primary, 300)),
+          Positioned(bottom: -80, left: -60, child: _buildBlob(_secondary, 260)),
           // Main content
           SafeArea(
             child: Column(
@@ -165,10 +156,7 @@ class _ProfileSetupViewState extends ConsumerState<ProfileSetupView>
                     key: _formKey,
                     child: FadeTransition(
                       opacity: _fadeAnim,
-                      child: SlideTransition(
-                        position: _slideAnim,
-                        child: _buildCurrentStep(),
-                      ),
+                      child: SlideTransition(position: _slideAnim, child: _buildCurrentStep()),
                     ),
                   ),
                 ),
@@ -185,10 +173,7 @@ class _ProfileSetupViewState extends ConsumerState<ProfileSetupView>
     return Container(
       width: size,
       height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: color.withAlpha(30),
-      ),
+      decoration: BoxDecoration(shape: BoxShape.circle, color: color.withAlpha(30)),
     );
   }
 
@@ -207,31 +192,16 @@ class _ProfileSetupViewState extends ConsumerState<ProfileSetupView>
             ),
             child: Text(
               '✈️  Almost there!',
-              style: GoogleFonts.inter(
-                color: _primary,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-              ),
+              style: GoogleFonts.inter(color: _primary, fontSize: 12, fontWeight: FontWeight.w600),
             ),
           ),
           const SizedBox(height: 12),
           Text(
             _stepTitle(),
-            style: GoogleFonts.outfit(
-              color: Colors.white,
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-              height: 1.2,
-            ),
+            style: GoogleFonts.outfit(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold, height: 1.2),
           ),
           const SizedBox(height: 6),
-          Text(
-            _stepSubtitle(),
-            style: GoogleFonts.inter(
-              color: Colors.white54,
-              fontSize: 14,
-            ),
-          ),
+          Text(_stepSubtitle(), style: GoogleFonts.inter(color: Colors.white54, fontSize: 14)),
         ],
       ),
     );
@@ -254,8 +224,8 @@ class _ProfileSetupViewState extends ConsumerState<ProfileSetupView>
                 color: isDone
                     ? _primary
                     : isActive
-                        ? _primary.withAlpha(178)
-                        : Colors.white12,
+                    ? _primary.withAlpha(178)
+                    : Colors.white12,
               ),
             ),
           );
@@ -297,22 +267,19 @@ class _ProfileSetupViewState extends ConsumerState<ProfileSetupView>
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: _primary.withAlpha(102),
-                        blurRadius: 20,
-                        spreadRadius: 2,
-                      ),
-                    ],
+                    boxShadow: [BoxShadow(color: _primary.withAlpha(102), blurRadius: 20, spreadRadius: 2)],
                   ),
-                  child: _photoUrl != null
+                  child: _uploadingPhoto
+                      ? const Center(child: CircularProgressIndicator(color: Colors.white))
+                      : _newPhoto != null
+                      ? ClipOval(child: Image.memory(_newPhoto!.bytes, fit: BoxFit.cover))
+                      : _photoUrl != null
                       ? ClipOval(
-                          child: _photoUrl!.startsWith('data:')
-                              ? Image.memory(
-                                  base64Decode(_photoUrl!.split(',').last),
-                                  fit: BoxFit.cover,
-                                )
-                              : Image.network(_photoUrl!, fit: BoxFit.cover),
+                          child: Image.network(
+                            _photoUrl!,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, _, _) => const Icon(Icons.person, color: Colors.white, size: 50),
+                          ),
                         )
                       : const Icon(Icons.person, color: Colors.white, size: 50),
                 ),
@@ -337,10 +304,7 @@ class _ProfileSetupViewState extends ConsumerState<ProfileSetupView>
         Center(
           child: Padding(
             padding: const EdgeInsets.only(top: 8),
-            child: Text(
-              'Tap to upload photo',
-              style: GoogleFonts.inter(color: Colors.white38, fontSize: 12),
-            ),
+            child: Text('Tap to upload photo', style: GoogleFonts.inter(color: Colors.white38, fontSize: 12)),
           ),
         ),
         const SizedBox(height: 32),
@@ -350,8 +314,7 @@ class _ProfileSetupViewState extends ConsumerState<ProfileSetupView>
           controller: _displayNameCtrl,
           hint: 'How should we call you?',
           icon: Icons.badge_outlined,
-          validator: (v) =>
-              (v == null || v.trim().isEmpty) ? 'Display name is required' : null,
+          validator: (v) => (v == null || v.trim().isEmpty) ? 'Display name is required' : null,
         ),
       ],
     );
@@ -394,26 +357,43 @@ class _ProfileSetupViewState extends ConsumerState<ProfileSetupView>
           hint: 'Tell the world who you are…',
           icon: Icons.auto_stories_outlined,
           maxLines: 4,
-          validator: (v) =>
-              (v == null || v.trim().isEmpty) ? 'A short bio is required' : null,
-        ),
-        const SizedBox(height: 24),
-        _buildLabel('Age (optional)'),
-        const SizedBox(height: 8),
-        _buildTextField(
-          controller: _ageCtrl,
-          hint: 'Your age',
-          icon: Icons.cake_outlined,
-          keyboardType: TextInputType.number,
+          validator: (v) => (v == null || v.trim().isEmpty) ? 'A short bio is required' : null,
         ),
         const SizedBox(height: 24),
         _buildLabel('Birthday (optional)'),
         const SizedBox(height: 8),
-        _buildTextField(
-          controller: _birthdayCtrl,
-          hint: 'e.g. 14 Jan 1995',
-          icon: Icons.celebration_outlined,
+        BirthdayPicker(
+          value: _birthday,
+          onChanged: (DateTime? d) => setState(() => _birthday = d),
+          style: GoogleFonts.inter(color: Colors.white, fontSize: 15),
+          dropdownColor: const Color(0xFF1A1A2E),
+          decoration: (String label) => InputDecoration(
+            labelText: label,
+            labelStyle: GoogleFonts.inter(color: Colors.white54, fontSize: 13),
+            filled: true,
+            fillColor: Colors.white.withAlpha(15),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: const BorderSide(color: Colors.white12),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: const BorderSide(color: _primary, width: 1.5),
+            ),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+          ),
         ),
+        if (_birthday == null) ...<Widget>[
+          const SizedBox(height: 24),
+          _buildLabel('Age (optional, if you\'d rather not give a birthday)'),
+          const SizedBox(height: 8),
+          _buildTextField(
+            controller: _ageCtrl,
+            hint: 'Your age',
+            icon: Icons.cake_outlined,
+            keyboardType: TextInputType.number,
+          ),
+        ],
       ],
     );
   }
@@ -423,12 +403,7 @@ class _ProfileSetupViewState extends ConsumerState<ProfileSetupView>
   Widget _buildLabel(String text) {
     return Text(
       text,
-      style: GoogleFonts.inter(
-        color: Colors.white70,
-        fontSize: 13,
-        fontWeight: FontWeight.w600,
-        letterSpacing: 0.4,
-      ),
+      style: GoogleFonts.inter(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600, letterSpacing: 0.4),
     );
   }
 
@@ -452,10 +427,7 @@ class _ProfileSetupViewState extends ConsumerState<ProfileSetupView>
         prefixIcon: Icon(icon, color: _primary, size: 20),
         filled: true,
         fillColor: Colors.white.withAlpha(15),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide.none,
-        ),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: const BorderSide(color: Colors.white12),
@@ -494,9 +466,7 @@ class _ProfileSetupViewState extends ConsumerState<ProfileSetupView>
                   foregroundColor: Colors.white70,
                   side: const BorderSide(color: Colors.white24),
                   padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                 ),
                 child: Text('Back', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
               ),
@@ -512,13 +482,7 @@ class _ProfileSetupViewState extends ConsumerState<ProfileSetupView>
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
-                boxShadow: [
-                  BoxShadow(
-                    color: _primary.withAlpha(89),
-                    blurRadius: 16,
-                    offset: const Offset(0, 6),
-                  ),
-                ],
+                boxShadow: [BoxShadow(color: _primary.withAlpha(89), blurRadius: 16, offset: const Offset(0, 6))],
               ),
               child: ElevatedButton(
                 onPressed: _isSaving ? null : () => _handleNext(isLastStep),
@@ -526,26 +490,17 @@ class _ProfileSetupViewState extends ConsumerState<ProfileSetupView>
                   backgroundColor: Colors.transparent,
                   shadowColor: Colors.transparent,
                   padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                 ),
                 child: _isSaving
                     ? const SizedBox(
                         width: 20,
                         height: 20,
-                        child: CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 2,
-                        ),
+                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                       )
                     : Text(
                         isLastStep ? "Let's Go! 🚀" : 'Continue →',
-                        style: GoogleFonts.inter(
-                          color: Colors.white,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                        ),
+                        style: GoogleFonts.inter(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w700),
                       ),
               ),
             ),
@@ -572,14 +527,14 @@ class _ProfileSetupViewState extends ConsumerState<ProfileSetupView>
   }
 
   String _stepTitle() => switch (_step) {
-        0 => 'Your Identity',
-        1 => "Where's Home?",
-        _ => 'Tell Your Story',
-      };
+    0 => 'Your Identity',
+    1 => "Where's Home?",
+    _ => 'Tell Your Story',
+  };
 
   String _stepSubtitle() => switch (_step) {
-        0 => 'Add a face to your adventures.',
-        1 => 'Select the country you call home.',
-        _ => 'A short bio that defines the traveler in you.',
-      };
+    0 => 'Add a face to your adventures.',
+    1 => 'Select the country you call home.',
+    _ => 'A short bio that defines the traveler in you.',
+  };
 }

@@ -1,12 +1,13 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:file_picker/file_picker.dart';
 import 'profile_state.dart';
 import '../../../core/time/api_time.dart';
 import '../../places/presentation/country_picker.dart';
 import '../../auth/presentation/auth_state.dart';
+import 'widgets/birthday_picker.dart';
+import 'widgets/profile_photo_upload.dart';
 
 class ProfileView extends ConsumerStatefulWidget {
   const ProfileView({super.key});
@@ -24,8 +25,10 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
   late TextEditingController _bioController;
   int? _homeCountryId;
   late TextEditingController _ageController;
-  late TextEditingController _birthdayController;
+  DateTime? _birthday;
   String? _photoUrl;
+  UploadedPhoto? _newPhoto;
+  bool _uploadingPhoto = false;
 
   @override
   void initState() {
@@ -33,7 +36,6 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
     _displayNameController = TextEditingController();
     _bioController = TextEditingController();
     _ageController = TextEditingController();
-    _birthdayController = TextEditingController();
   }
 
   @override
@@ -41,7 +43,6 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
     _displayNameController.dispose();
     _bioController.dispose();
     _ageController.dispose();
-    _birthdayController.dispose();
     super.dispose();
   }
 
@@ -52,22 +53,24 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
       _bioController.text = p.bio ?? '';
       _homeCountryId = p.homeCountryId;
       _ageController.text = p.age?.toString() ?? '';
-      _birthdayController.text = p.birthday ?? '';
+      _birthday = p.birthday;
       _photoUrl = p.photoUrl;
+      _newPhoto = null;
     }
   }
 
   Future<void> _pickImage() async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.image,
-      allowMultiple: false,
-    );
-
-    if (result != null && result.files.single.bytes != null) {
-      final bytes = result.files.single.bytes!;
-      setState(() {
-        _photoUrl = 'data:image/jpeg;base64,${base64Encode(bytes)}';
-      });
+    if (_uploadingPhoto) return;
+    setState(() => _uploadingPhoto = true);
+    try {
+      final UploadedPhoto? photo = await pickAndUploadPhoto(ref);
+      if (photo != null && mounted) setState(() => _newPhoto = photo);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(photoUploadError(e))));
+      }
+    } finally {
+      if (mounted) setState(() => _uploadingPhoto = false);
     }
   }
 
@@ -75,25 +78,24 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
     if (!_formKey.currentState!.validate()) return;
 
     final age = int.tryParse(_ageController.text);
-    final success = await ref.read(profileNotifierProvider.notifier).updateProfile(
+    final success = await ref
+        .read(profileNotifierProvider.notifier)
+        .updateProfile(
           displayName: _displayNameController.text.trim(),
           bio: _bioController.text.trim(),
           homeCountryId: _homeCountryId,
-          photoUrl: _photoUrl,
-          age: age,
-          birthday: _birthdayController.text.trim(),
+          photoMediaId: _newPhoto?.mediaId,
+          age: _birthday == null ? age : null,
+          birthday: _birthday,
         );
 
     if (success && mounted) {
       setState(() {
         _isEditing = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Profile updated successfully!'),
-          backgroundColor: Colors.green,
-        ),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Profile updated successfully!'), backgroundColor: Colors.green));
     }
   }
 
@@ -109,10 +111,7 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'Profile & Achievements',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
+        title: const Text('Profile & Achievements', style: TextStyle(fontWeight: FontWeight.bold)),
         actions: [
           if (!_isEditing && profileState.profile != null)
             IconButton(
@@ -157,10 +156,7 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(color: theme.colorScheme.error.withValues(alpha: 0.5)),
                           ),
-                          child: Text(
-                            profileState.errorMessage!,
-                            style: TextStyle(color: theme.colorScheme.error),
-                          ),
+                          child: Text(profileState.errorMessage!, style: TextStyle(color: theme.colorScheme.error)),
                         ),
 
                       // Profile Card Container
@@ -169,7 +165,9 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                         child: Padding(
                           padding: const EdgeInsets.all(24.0),
-                          child: _isEditing ? _buildEditForm(theme, profileState) : _buildProfileView(theme, profileState),
+                          child: _isEditing
+                              ? _buildEditForm(theme, profileState)
+                              : _buildProfileView(theme, profileState),
                         ),
                       ),
                       const SizedBox(height: 24),
@@ -190,10 +188,30 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
                         crossAxisSpacing: 16,
                         mainAxisSpacing: 16,
                         children: [
-                          _buildBadgeCard(Icons.landscape_rounded, 'Mountain Explorer', 'Visited 5 Alpine peaks', Colors.orange),
-                          _buildBadgeCard(Icons.museum_outlined, 'Culture Guide', 'Explored 10 local shrines', Colors.purple),
-                          _buildBadgeCard(Icons.beach_access_rounded, 'Beach Wanderer', 'Sunbathed at 3 coastlines', Colors.cyan),
-                          _buildBadgeCard(Icons.flight_takeoff_rounded, 'Globe Trotter', 'Travelled across continents', Colors.green),
+                          _buildBadgeCard(
+                            Icons.landscape_rounded,
+                            'Mountain Explorer',
+                            'Visited 5 Alpine peaks',
+                            Colors.orange,
+                          ),
+                          _buildBadgeCard(
+                            Icons.museum_outlined,
+                            'Culture Guide',
+                            'Explored 10 local shrines',
+                            Colors.purple,
+                          ),
+                          _buildBadgeCard(
+                            Icons.beach_access_rounded,
+                            'Beach Wanderer',
+                            'Sunbathed at 3 coastlines',
+                            Colors.cyan,
+                          ),
+                          _buildBadgeCard(
+                            Icons.flight_takeoff_rounded,
+                            'Globe Trotter',
+                            'Travelled across continents',
+                            Colors.green,
+                          ),
                         ],
                       ),
                     ],
@@ -206,15 +224,10 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
 
   Widget _buildAvatar(ThemeData theme, {bool isEditingMode = false}) {
     ImageProvider? imageProvider;
-    if (_photoUrl != null && _photoUrl!.isNotEmpty) {
-      try {
-        if (_photoUrl!.startsWith('data:')) {
-          final base64Data = _photoUrl!.split(',').last;
-          imageProvider = MemoryImage(base64Decode(base64Data));
-        } else {
-          imageProvider = NetworkImage(_photoUrl!);
-        }
-      } catch (_) {}
+    if (_newPhoto != null) {
+      imageProvider = MemoryImage(_newPhoto!.bytes);
+    } else if (_photoUrl != null && _photoUrl!.isNotEmpty) {
+      imageProvider = NetworkImage(_photoUrl!);
     }
 
     return Stack(
@@ -224,7 +237,10 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
           radius: 54,
           backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.15),
           backgroundImage: imageProvider,
-          child: imageProvider == null
+          onBackgroundImageError: imageProvider == null ? null : (Object _, StackTrace? _) {},
+          child: _uploadingPhoto
+              ? const CircularProgressIndicator()
+              : imageProvider == null
               ? Icon(Icons.person_rounded, size: 58, color: theme.colorScheme.primary)
               : null,
         ),
@@ -249,9 +265,7 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
     final profile = profileState.profile;
     if (profile == null) return const Text('No profile details found.');
 
-    final memberSince = profile.createdAt != null
-        ? ApiTime.formatMonthYear(profile.createdAt!)
-        : 'Unknown';
+    final memberSince = profile.createdAt != null ? ApiTime.formatMonthYear(profile.createdAt!) : 'Unknown';
 
     return Column(
       children: [
@@ -275,15 +289,9 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
                       ),
                     ],
                   ),
-                  Text(
-                    '@${profile.username}',
-                    style: theme.textTheme.bodyMedium?.copyWith(color: Colors.grey),
-                  ),
+                  Text('@${profile.username}', style: theme.textTheme.bodyMedium?.copyWith(color: Colors.grey)),
                   const SizedBox(height: 6),
-                  Text(
-                    profile.email,
-                    style: theme.textTheme.bodyMedium?.copyWith(color: Colors.grey),
-                  ),
+                  Text(profile.email, style: theme.textTheme.bodyMedium?.copyWith(color: Colors.grey)),
                 ],
               ),
             ),
@@ -293,8 +301,16 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
         const Divider(),
         const SizedBox(height: 16),
         _buildDetailRow(Icons.description_outlined, 'Bio', profile.bio ?? 'No bio written yet.'),
-        _buildDetailRow(Icons.public_rounded, 'Home country', countryName(ref, profile.homeCountryId) ?? 'Not specified'),
-        _buildDetailRow(Icons.cake_outlined, 'Birthday', profile.birthday ?? 'Not specified'),
+        _buildDetailRow(
+          Icons.public_rounded,
+          'Home country',
+          countryName(ref, profile.homeCountryId) ?? 'Not specified',
+        ),
+        _buildDetailRow(
+          Icons.cake_outlined,
+          'Birthday',
+          profile.birthday == null ? 'Not specified' : DateFormat.yMMMd().format(profile.birthday!),
+        ),
         _buildDetailRow(Icons.calendar_today_rounded, 'Age', profile.age?.toString() ?? 'Not specified'),
         _buildDetailRow(Icons.card_membership_rounded, 'Member Since', memberSince),
       ],
@@ -310,16 +326,10 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'Edit Profile Details',
-                style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-              ),
+              Text('Edit Profile Details', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
               Row(
                 children: [
-                  TextButton(
-                    onPressed: () => setState(() => _isEditing = false),
-                    child: const Text('Cancel'),
-                  ),
+                  TextButton(onPressed: () => setState(() => _isEditing = false), child: const Text('Cancel')),
                   const SizedBox(width: 8),
                   ElevatedButton(
                     onPressed: profileState.isLoading ? null : _saveChanges,
@@ -340,9 +350,7 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
             ],
           ),
           const SizedBox(height: 20),
-          Center(
-            child: _buildAvatar(theme, isEditingMode: true),
-          ),
+          Center(child: _buildAvatar(theme, isEditingMode: true)),
           const SizedBox(height: 24),
           TextFormField(
             controller: _displayNameController,
@@ -369,42 +377,27 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
             onSelected: (country) => setState(() => _homeCountryId = country.id),
           ),
           const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: TextFormField(
-                  controller: _ageController,
-                  keyboardType: TextInputType.number,
-                  decoration: InputDecoration(
-                    labelText: 'Age',
-                    prefixIcon: const Icon(Icons.calendar_today_rounded),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  validator: (value) {
-                    if (value != null && value.trim().isNotEmpty) {
-                      if (int.tryParse(value) == null) {
-                        return 'Must be valid age';
-                      }
-                    }
-                    return null;
-                  },
-                ),
+          Text('Birthday', style: theme.textTheme.labelLarge),
+          const SizedBox(height: 8),
+          BirthdayPicker(value: _birthday, onChanged: (DateTime? d) => setState(() => _birthday = d)),
+          if (_birthday == null) ...<Widget>[
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _ageController,
+              keyboardType: TextInputType.number,
+              decoration: InputDecoration(
+                labelText: 'Age (if you\'d rather not give a birthday)',
+                prefixIcon: const Icon(Icons.calendar_today_rounded),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
               ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: TextFormField(
-                  controller: _birthdayController,
-                  decoration: InputDecoration(
-                    labelText: 'Birthday',
-                    hintText: 'YYYY-MM-DD',
-                    prefixIcon: const Icon(Icons.cake_outlined),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                ),
-              ),
-            ],
-          ),
-
+              validator: (value) {
+                if (value != null && value.trim().isNotEmpty && int.tryParse(value) == null) {
+                  return 'Must be valid age';
+                }
+                return null;
+              },
+            ),
+          ],
         ],
       ),
     );

@@ -1,14 +1,16 @@
 # Project status: Flutter client
 
-Last updated: 2026-11-11 (trip covers)
+Last updated: 2026-11-11 (profile photo upload, birthday picker)
 
 ## Where things stand
 - Scaffold with feature folders: auth, profile, trip, memories, capture, explore, navigation.
 - Profile sends the device IANA time zone (`flutter_timezone`) whenever it differs from the server's; countries come from `GET /api/places/countries` (`CountryPicker`, searchable).
+- Profile photo: picking a photo uploads it straight away through the media API (`MediaRepository.uploadPhoto`: `POST /api/media/uploads`, PUT the bytes to the signed URL with a plain Dio, `POST /api/media/{id}/complete`), and saving sends `photoMediaId` (needs backend kaushikhc/travel-app#37). The profile's `photoUrl` is the signed link to show. Never send base64 in `photoUrl`; the backend rejects it.
+- Birthday: `BirthdayPicker` (day, month, year dropdowns; no impossible or future dates), sent as `yyyy-MM-dd` (`ApiDate`). The server works out `age` from the birthday; the Age field only shows when no birthday is picked.
 - Wired to the API: email login and register, Google sign-in (native on Android via `POST /api/auth/google`, redirect plus `POST /api/auth/exchange` on web), `/auth/check`, `/auth/logout`, `GET|PUT /profile/me`.
 - Home tab (`TripsView`) on real data: `GET /api/trips/home` (current trip with day progress, upcoming, drafts) and `GET /api/statistics/me` (countries, trips, memories), with loading, empty and error states. `TripModel` uses the backend statuses (DRAFT/UPCOMING/ACTIVE/ARCHIVED).
 - Mock data only: memories, capture, explore. Trip covers: `TripResponse` carries only `coverMediaId` (Sam's call); the app fetches the signed link with `GET /api/media/{id}` (`mediaUrlProvider`), lazily per card, reused for 50 minutes because links expire after the backend's 1-hour download TTL. Add a batch endpoint only if a screen ever shows many covers.
-- Tests: 30 (media link caching, router redirect rules, auth notifier, time parsing, countries, time zone sync, trip model, Home view, smoke test). `flutter analyze` clean; `flutter build web` OK. Android build not yet verified on a device.
+- Tests: 39 (photo upload, birthday picker and dates, media link caching, router redirect rules, auth notifier, time parsing, countries, time zone sync, trip model, Home view, smoke test). `flutter analyze` clean; `flutter build web` OK. Android build not yet verified on a device.
 
 ## Auth design (PR "Auth rework")
 - `AuthNotifier` (`features/auth/presentation/auth_state.dart`) owns the session: states checking, unauthenticated, loading, authenticated, error. At start it restores the token from `TokenStorage` (`core/storage`, flutter_secure_storage) and checks it with `/auth/check`: rejected tokens are dropped, an unreachable server keeps the session.
@@ -37,6 +39,7 @@ Until the MVP is ready, PRs go to `main`. After that, all development goes to `d
 
 ## How to run
 - Backend CORS allows only the `Authorization`, `Content-Type` and `Accept` headers. Don't add other default headers for non-ngrok hosts, or browser calls fail as "could not reach the server".
+- Photo uploads in dev go to the local S3 server from the backend's `docker compose up -d` (localhost:9090). The signed upload URL points at localhost, so uploads work from the PC only, not from another device over ngrok. For the deployed web build, the R2 bucket needs a CORS rule for the app's origin.
 - PC, Chrome: `flutter run -d chrome --web-port 8080` (port 8080 is where the backend sends Google sign-in back; on localhost the app calls `http://localhost/api`).
 - Android emulator: `--dart-define=API_BASE_URL=http://10.0.2.2/api` (10.0.2.2 is the PC). Debug builds allow plain http for this; release builds need https.
 
