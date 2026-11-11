@@ -7,6 +7,7 @@ import '../../features/auth/presentation/login_view.dart';
 import '../../features/navigation/presentation/main_scaffold.dart';
 import '../../features/trip/presentation/trips_view.dart';
 import '../../features/trip/presentation/trip_detail_view.dart';
+import '../../features/trip/presentation/trip_itinerary_view.dart';
 import '../../features/trip/presentation/create_trip_view.dart';
 import '../../features/trip/data/trip_repository.dart';
 import '../../features/trip/domain/trip_detail_model.dart';
@@ -98,6 +99,11 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (BuildContext context, GoRouterState state) =>
                 TripDetailView(tripId: int.tryParse(state.pathParameters['id'] ?? '') ?? 0),
             routes: <RouteBase>[
+              GoRoute(
+                path: 'itinerary',
+                builder: (BuildContext context, GoRouterState state) =>
+                    TripItineraryView(tripId: int.tryParse(state.pathParameters['id'] ?? '') ?? 0),
+              ),
               GoRoute(
                 path: 'edit',
                 builder: (BuildContext context, GoRouterState state) {
