@@ -135,6 +135,17 @@ class TripDetailView extends ConsumerWidget {
             ],
           ),
         ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: OutlinedButton.icon(
+              icon: const Icon(Icons.event_note_outlined),
+              label: const Text('Itinerary'),
+              onPressed: () => context.push(AppRoutes.tripItinerary(tripId)),
+            ),
+          ),
+        ),
         _section(theme, 'Places', 'No places planned yet.', d.places.map((TripPlaceItem p) {
           final List<String> parts = <String>[
             if (p.plannedDate != null) DateFormat.yMMMd().format(p.plannedDate!),

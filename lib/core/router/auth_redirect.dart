@@ -11,7 +11,9 @@ abstract final class AppRoutes {
   static const String home = '/home';
   static const String newTrip = '/trips/new';
   static String editTrip(int id) => '/trips/$id/edit';
+  static String tripItinerary(int id) => '/trips/$id/itinerary';
   static const String memories = '/memories';
+  static const String journey = '/memories/journey';
   static const String capture = '/capture';
   static String memoryDetail(int id) => '/memories/$id';
   static String editMemory(int id) => '/memories/$id/edit';
