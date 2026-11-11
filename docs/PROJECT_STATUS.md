@@ -1,14 +1,14 @@
 # Project status: Flutter client
 
-Last updated: 2026-11-11 (Home tab on real data)
+Last updated: 2026-11-11 (trip covers)
 
 ## Where things stand
 - Scaffold with feature folders: auth, profile, trip, memories, capture, explore, navigation.
 - Profile sends the device IANA time zone (`flutter_timezone`) whenever it differs from the server's; countries come from `GET /api/places/countries` (`CountryPicker`, searchable).
 - Wired to the API: email login and register, Google sign-in (native on Android via `POST /api/auth/google`, redirect plus `POST /api/auth/exchange` on web), `/auth/check`, `/auth/logout`, `GET|PUT /profile/me`.
 - Home tab (`TripsView`) on real data: `GET /api/trips/home` (current trip with day progress, upcoming, drafts) and `GET /api/statistics/me` (countries, trips, memories), with loading, empty and error states. `TripModel` uses the backend statuses (DRAFT/UPCOMING/ACTIVE/ARCHIVED).
-- Mock data only: memories, capture, explore. Trip cover images are not shown yet (only `coverMediaId` comes back; needs a media URL lookup).
-- Tests: 29 (router redirect rules, auth notifier, time parsing, countries, time zone sync, trip model, Home view, smoke test). `flutter analyze` clean; `flutter build web` OK. Android build not yet verified on a device.
+- Mock data only: memories, capture, explore. Trip covers: `TripResponse` carries only `coverMediaId` (Sam's call); the app fetches the signed link with `GET /api/media/{id}` (`mediaUrlProvider`), lazily per card, reused for 50 minutes because links expire after the backend's 1-hour download TTL. Add a batch endpoint only if a screen ever shows many covers.
+- Tests: 30 (media link caching, router redirect rules, auth notifier, time parsing, countries, time zone sync, trip model, Home view, smoke test). `flutter analyze` clean; `flutter build web` OK. Android build not yet verified on a device.
 
 ## Auth design (PR "Auth rework")
 - `AuthNotifier` (`features/auth/presentation/auth_state.dart`) owns the session: states checking, unauthenticated, loading, authenticated, error. At start it restores the token from `TokenStorage` (`core/storage`, flutter_secure_storage) and checks it with `/auth/check`: rejected tokens are dropped, an unreachable server keeps the session.
