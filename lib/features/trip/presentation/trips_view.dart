@@ -6,6 +6,7 @@ import '../../auth/presentation/auth_state.dart';
 import '../../profile/presentation/profile_state.dart';
 import '../../../core/time/api_time.dart';
 import '../data/trip_repository.dart';
+import '../../media/data/media_repository.dart';
 import '../domain/trip_model.dart';
 
 class TripsView extends ConsumerWidget {
@@ -131,7 +132,10 @@ class TripsView extends ConsumerWidget {
                     ),
                     data: (HomeOverview home) => home.current == null
                         ? const _Placeholder(height: 120, text: 'No trip in progress. Your next trip shows here once it starts.')
-                        : _buildCurrentTripCard(theme, home.current!, today),
+                        : Consumer(
+                            builder: (BuildContext context, WidgetRef ref, Widget? _) => _buildCurrentTripCard(
+                                theme, home.current!, today, _coverUrl(ref, home.current!)),
+                          ),
                   ),
                   const SizedBox(height: 32),
 
@@ -172,11 +176,14 @@ class TripsView extends ConsumerWidget {
                           separatorBuilder: (BuildContext context, int i) => const SizedBox(width: 16),
                           itemBuilder: (BuildContext context, int i) {
                             final TripModel trip = trips[i];
-                            return _buildUpcomingCard(
-                              context,
-                              trip.name,
-                              trip.startDate == null ? 'No dates yet' : ApiTime.formatMonthYear(trip.startDate!),
-                              _upcomingBadge(trip, today),
+                            return Consumer(
+                              builder: (BuildContext context, WidgetRef ref, Widget? _) => _buildUpcomingCard(
+                                context,
+                                trip.name,
+                                trip.startDate == null ? 'No dates yet' : ApiTime.formatMonthYear(trip.startDate!),
+                                _upcomingBadge(trip, today),
+                                _coverUrl(ref, trip),
+                              ),
                             );
                           },
                         );
@@ -223,7 +230,7 @@ class TripsView extends ConsumerWidget {
     );
   }
 
-  Widget _buildCurrentTripCard(ThemeData theme, TripModel trip, DateTime today) {
+  Widget _buildCurrentTripCard(ThemeData theme, TripModel trip, DateTime today, String? coverUrl) {
     final int? day = trip.dayOfTrip(today);
     final int? total = trip.totalDays;
     final String badge = total == null ? 'Active' : '$total days';
@@ -238,6 +245,7 @@ class TripsView extends ConsumerWidget {
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(24),
                       color: theme.colorScheme.primary,
+                      image: _cover(coverUrl),
                       boxShadow: [
                         BoxShadow(
                           color: Colors.black.withValues(alpha: 0.15),
@@ -369,6 +377,17 @@ class TripsView extends ConsumerWidget {
                   );
   }
 
+  /// The trip's cover link once loaded; null while loading, on error or without a cover.
+  static String? _coverUrl(WidgetRef ref, TripModel trip) {
+    final int? id = trip.coverMediaId;
+    return id == null ? null : ref.watch(mediaUrlProvider(id)).value;
+  }
+
+  /// Cover as a background behind the card's dark gradient; the plain colour shows until then.
+  static DecorationImage? _cover(String? url) => url == null
+      ? null
+      : DecorationImage(image: NetworkImage(url), fit: BoxFit.cover, onError: (Object _, StackTrace? _) {});
+
   static String _greeting(DateTime now) {
     if (now.hour < 12) return 'Good morning';
     if (now.hour < 17) return 'Good afternoon';
@@ -425,12 +444,14 @@ class TripsView extends ConsumerWidget {
     String country,
     String date,
     String daysLeft,
+    String? coverUrl,
   ) {
     return Container(
       width: 150,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
         color: Theme.of(context).colorScheme.secondary,
+        image: _cover(coverUrl),
       ),
       child: Container(
         decoration: BoxDecoration(
