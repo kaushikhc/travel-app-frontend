@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'profile_state.dart';
+import '../../places/presentation/country_picker.dart';
 
 /// Full-screen onboarding wizard shown when mandatory profile fields are empty.
 /// The user cannot navigate past this screen until all required fields are saved.
@@ -33,26 +34,7 @@ class _ProfileSetupViewState extends ConsumerState<ProfileSetupView>
   String? _photoUrl;
   bool _isSaving = false;
 
-  // Country list (subset for MVP)
-  static const List<Map<String, dynamic>> _countries = [
-    {'id': 1, 'name': 'India', 'flag': '🇮🇳'},
-    {'id': 2, 'name': 'United States', 'flag': '🇺🇸'},
-    {'id': 3, 'name': 'United Kingdom', 'flag': '🇬🇧'},
-    {'id': 4, 'name': 'Germany', 'flag': '🇩🇪'},
-    {'id': 5, 'name': 'France', 'flag': '🇫🇷'},
-    {'id': 6, 'name': 'Japan', 'flag': '🇯🇵'},
-    {'id': 7, 'name': 'Australia', 'flag': '🇦🇺'},
-    {'id': 8, 'name': 'Canada', 'flag': '🇨🇦'},
-    {'id': 9, 'name': 'Brazil', 'flag': '🇧🇷'},
-    {'id': 10, 'name': 'Italy', 'flag': '🇮🇹'},
-    {'id': 11, 'name': 'Spain', 'flag': '🇪🇸'},
-    {'id': 12, 'name': 'South Korea', 'flag': '🇰🇷'},
-    {'id': 13, 'name': 'Mexico', 'flag': '🇲🇽'},
-    {'id': 14, 'name': 'Netherlands', 'flag': '🇳🇱'},
-    {'id': 15, 'name': 'Singapore', 'flag': '🇸🇬'},
-  ];
-
-  Map<String, dynamic>? _selectedCountry;
+  int? _selectedCountryId;
 
   static const Color _primary = Color(0xFF7C6AF7);
   static const Color _secondary = Color(0xFF3B82F6);
@@ -85,9 +67,7 @@ class _ProfileSetupViewState extends ConsumerState<ProfileSetupView>
         _ageCtrl.text = profile.age?.toString() ?? '';
         _birthdayCtrl.text = profile.birthday ?? '';
         _photoUrl = profile.photoUrl;
-        if (profile.homeCountryId != null) {
-          _selectedCountry = _countries.where((c) => c['id'] == profile.homeCountryId).firstOrNull;
-        }
+        _selectedCountryId = profile.homeCountryId;
       }
       _animCtrl.forward();
     });
@@ -123,7 +103,7 @@ class _ProfileSetupViewState extends ConsumerState<ProfileSetupView>
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
-    if (_selectedCountry == null) {
+    if (_selectedCountryId == null) {
       _showError('Please select your home country.');
       return;
     }
@@ -131,7 +111,7 @@ class _ProfileSetupViewState extends ConsumerState<ProfileSetupView>
     final success = await ref.read(profileNotifierProvider.notifier).updateProfile(
           displayName: _displayNameCtrl.text.trim(),
           bio: _bioCtrl.text.trim(),
-          homeCountryId: _selectedCountry!['id'] as int,
+          homeCountryId: _selectedCountryId!,
           photoUrl: _photoUrl,
           age: int.tryParse(_ageCtrl.text),
           birthday: _birthdayCtrl.text.trim().isEmpty ? null : _birthdayCtrl.text.trim(),
@@ -385,59 +365,11 @@ class _ProfileSetupViewState extends ConsumerState<ProfileSetupView>
       children: [
         _buildLabel('Home Country *'),
         const SizedBox(height: 12),
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 3,
-            childAspectRatio: 2.4,
-            crossAxisSpacing: 8,
-            mainAxisSpacing: 8,
-          ),
-          itemCount: _countries.length,
-          itemBuilder: (context, i) {
-            final country = _countries[i];
-            final isSelected = _selectedCountry?['id'] == country['id'];
-            return GestureDetector(
-              onTap: () => setState(() => _selectedCountry = country),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(10),
-                  color: isSelected
-                      ? _primary.withAlpha(64)
-                      : Colors.white.withAlpha(13),
-                  border: Border.all(
-                    color: isSelected ? _primary : Colors.white12,
-                    width: isSelected ? 1.5 : 1,
-                  ),
-                ),
-                child: Center(
-                  child: FittedBox(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      child: Row(
-                        children: [
-                          Text(country['flag'] as String, style: const TextStyle(fontSize: 16)),
-                          const SizedBox(width: 6),
-                          Text(
-                            country['name'] as String,
-                            style: GoogleFonts.inter(
-                              color: isSelected ? _primary : Colors.white70,
-                              fontSize: 12,
-                              fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            );
-          },
+        CountryPicker(
+          selectedId: _selectedCountryId,
+          onSelected: (country) => setState(() => _selectedCountryId = country.id),
         ),
-        if (_selectedCountry == null)
+        if (_selectedCountryId == null)
           Padding(
             padding: const EdgeInsets.only(top: 8),
             child: Text(
@@ -629,7 +561,7 @@ class _ProfileSetupViewState extends ConsumerState<ProfileSetupView>
     } else if (_step == 0) {
       if (_formKey.currentState!.validate()) _goToStep(_step + 1);
     } else if (_step == 1) {
-      if (_selectedCountry == null) {
+      if (_selectedCountryId == null) {
         _showError('Please select your home country.');
       } else {
         _goToStep(_step + 1);

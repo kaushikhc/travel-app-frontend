@@ -46,4 +46,10 @@ class ProfileRepository {
       throw Exception('Failed to update profile: ${response.statusMessage}');
     }
   }
+
+  /// PUT /api/profile/me with only the time zone (the server ignores missing fields).
+  Future<ProfileModel> updateTimeZone(String timeZone) async {
+    final response = await _apiClient.put('/profile/me', data: <String, String>{'timeZone': timeZone});
+    return ProfileModel.fromJson(response.data as Map<String, dynamic>);
+  }
 }

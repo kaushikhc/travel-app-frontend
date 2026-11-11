@@ -3,8 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:intl/intl.dart';
 import 'profile_state.dart';
+import '../../../core/time/api_time.dart';
+import '../../places/presentation/country_picker.dart';
 import '../../auth/presentation/auth_state.dart';
 
 class ProfileView extends ConsumerStatefulWidget {
@@ -21,7 +22,7 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
   // Controllers
   late TextEditingController _displayNameController;
   late TextEditingController _bioController;
-  late TextEditingController _homeCountryController;
+  int? _homeCountryId;
   late TextEditingController _ageController;
   late TextEditingController _birthdayController;
   String? _photoUrl;
@@ -31,7 +32,6 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
     super.initState();
     _displayNameController = TextEditingController();
     _bioController = TextEditingController();
-    _homeCountryController = TextEditingController();
     _ageController = TextEditingController();
     _birthdayController = TextEditingController();
   }
@@ -40,7 +40,6 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
   void dispose() {
     _displayNameController.dispose();
     _bioController.dispose();
-    _homeCountryController.dispose();
     _ageController.dispose();
     _birthdayController.dispose();
     super.dispose();
@@ -51,7 +50,7 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
       final p = profileState.profile!;
       _displayNameController.text = p.displayName;
       _bioController.text = p.bio ?? '';
-      _homeCountryController.text = p.homeCountryId?.toString() ?? '';
+      _homeCountryId = p.homeCountryId;
       _ageController.text = p.age?.toString() ?? '';
       _birthdayController.text = p.birthday ?? '';
       _photoUrl = p.photoUrl;
@@ -75,12 +74,11 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
   Future<void> _saveChanges() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final homeCountryId = int.tryParse(_homeCountryController.text);
     final age = int.tryParse(_ageController.text);
     final success = await ref.read(profileNotifierProvider.notifier).updateProfile(
           displayName: _displayNameController.text.trim(),
           bio: _bioController.text.trim(),
-          homeCountryId: homeCountryId,
+          homeCountryId: _homeCountryId,
           photoUrl: _photoUrl,
           age: age,
           birthday: _birthdayController.text.trim(),
@@ -252,7 +250,7 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
     if (profile == null) return const Text('No profile details found.');
 
     final memberSince = profile.createdAt != null
-        ? DateFormat('MMMM yyyy').format(profile.createdAt!)
+        ? ApiTime.formatMonthYear(profile.createdAt!)
         : 'Unknown';
 
     return Column(
@@ -295,7 +293,7 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
         const Divider(),
         const SizedBox(height: 16),
         _buildDetailRow(Icons.description_outlined, 'Bio', profile.bio ?? 'No bio written yet.'),
-        _buildDetailRow(Icons.public_rounded, 'Home Country Code (ID)', profile.homeCountryId?.toString() ?? 'Not specified'),
+        _buildDetailRow(Icons.public_rounded, 'Home country', countryName(ref, profile.homeCountryId) ?? 'Not specified'),
         _buildDetailRow(Icons.cake_outlined, 'Birthday', profile.birthday ?? 'Not specified'),
         _buildDetailRow(Icons.calendar_today_rounded, 'Age', profile.age?.toString() ?? 'Not specified'),
         _buildDetailRow(Icons.card_membership_rounded, 'Member Since', memberSince),
@@ -366,22 +364,9 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
             ),
           ),
           const SizedBox(height: 16),
-          TextFormField(
-            controller: _homeCountryController,
-            keyboardType: TextInputType.number,
-            decoration: InputDecoration(
-              labelText: 'Home Country Code (ID)',
-              prefixIcon: const Icon(Icons.public_rounded),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-            validator: (value) {
-              if (value != null && value.trim().isNotEmpty) {
-                if (int.tryParse(value) == null) {
-                  return 'Must be a valid integer ID';
-                }
-              }
-              return null;
-            },
+          CountryPicker(
+            selectedId: _homeCountryId,
+            onSelected: (country) => setState(() => _homeCountryId = country.id),
           ),
           const SizedBox(height: 16),
           Row(
