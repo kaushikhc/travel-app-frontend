@@ -11,6 +11,8 @@ import '../../features/trip/presentation/create_trip_view.dart';
 import '../../features/trip/data/trip_repository.dart';
 import '../../features/trip/domain/trip_detail_model.dart';
 import '../../features/trip/domain/trip_model.dart';
+import '../../features/memories/data/memory_repository.dart';
+import '../../features/memories/domain/memory_model.dart';
 import '../../features/memories/presentation/memories_view.dart';
 import '../../features/memories/presentation/memory_detail_view.dart';
 import '../../features/capture/presentation/capture_view.dart';
@@ -118,7 +120,27 @@ final routerProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: ':id',
                 builder: (BuildContext context, GoRouterState state) =>
-                    MemoryDetailView(memoryId: int.tryParse(state.pathParameters['id'] ?? '') ?? 0),
+                    MemoryDetailView(
+                      memoryId:
+                          int.tryParse(state.pathParameters['id'] ?? '') ?? 0,
+                    ),
+                routes: <RouteBase>[
+                  GoRoute(
+                    path: 'edit',
+                    builder: (BuildContext context, GoRouterState state) {
+                      final Object? extra = state.extra;
+                      return extra is MemoryModel
+                          ? CaptureView(memory: extra)
+                          : _LoadedMemoryEdit(
+                              memoryId:
+                                  int.tryParse(
+                                    state.pathParameters['id'] ?? '',
+                                  ) ??
+                                  0,
+                            );
+                    },
+                  ),
+                ],
               ),
             ],
           ),
@@ -193,6 +215,29 @@ class _LoadedTripEdit extends ConsumerWidget {
       error: (Object e, StackTrace _) => Scaffold(
         appBar: AppBar(),
         body: const Center(child: Text('Could not load this trip.')),
+      ),
+    );
+  }
+}
+
+/// Fallback when `/memories/:id/edit` is opened without the memory (e.g. a web reload): loads it first.
+class _LoadedMemoryEdit extends ConsumerWidget {
+  final int memoryId;
+
+  const _LoadedMemoryEdit({required this.memoryId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final AsyncValue<MemoryModel> memory = ref.watch(
+      memoryDetailProvider(memoryId),
+    );
+    return memory.when(
+      data: (MemoryModel m) => CaptureView(memory: m),
+      loading: () =>
+          const Scaffold(body: Center(child: CircularProgressIndicator())),
+      error: (Object e, StackTrace _) => Scaffold(
+        appBar: AppBar(),
+        body: const Center(child: Text('Could not load this memory.')),
       ),
     );
   }

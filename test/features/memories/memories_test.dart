@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:travel_app_frontend/core/network/api_client.dart';
+import 'package:travel_app_frontend/features/capture/presentation/capture_view.dart';
 import 'package:travel_app_frontend/features/media/data/media_repository.dart';
 import 'package:travel_app_frontend/features/memories/data/memory_repository.dart';
 import 'package:travel_app_frontend/features/memories/domain/memory_model.dart';
@@ -48,6 +49,13 @@ class FakeApi extends ApiClient {
   }
 
   @override
+  Future<Response> patch(String path, {dynamic data}) async {
+    calls.add('PATCH $path');
+    body = data;
+    return _ok(path, _json);
+  }
+
+  @override
   Future<Response> delete(String path) async {
     calls.add('DELETE $path');
     return _ok(path, null, 204);
@@ -89,17 +97,86 @@ void main() {
     });
   });
 
-  test('fetch list passes the tag, detail and delete use the id path', () async {
-    final FakeApi api = FakeApi();
-    final MemoryRepository repo = MemoryRepository(api);
-    expect((await repo.fetchMemories(tag: 'food')).single.id, 7);
-    expect(api.query, <String, dynamic>{'tag': 'food'});
-    await repo.fetchMemories();
-    expect(api.query, isNull);
-    expect((await repo.fetchMemory(7)).title, 'Sunset');
-    await repo.deleteMemory(7);
-    expect(api.calls, <String>['GET /memories', 'GET /memories', 'GET /memories/7', 'DELETE /memories/7']);
+  test(
+    'updateMemory patches only the editable fields and replaces mediaIds',
+    () async {
+      final FakeApi api = FakeApi();
+      final MemoryModel m = await MemoryRepository(api).updateMemory(
+        7,
+        title: ' New ',
+        note: '  ',
+        visibility: MemoryVisibility.public,
+        tags: <String>['a'],
+        mediaIds: <int>[1, 9],
+      );
+      expect(m.id, 7);
+      expect(api.calls, <String>['PATCH /memories/7']);
+      // note '' clears it; no capturedAt, visitId or placeId keys (a null would clear visit/place).
+      expect(api.body, <String, dynamic>{
+        'title': 'New',
+        'note': '',
+        'visibility': 'PUBLIC',
+        'tags': <String>['a'],
+        'mediaIds': <int>[1, 9],
+      });
+    },
+  );
+
+  testWidgets('edit mode is prefilled with the saved memory', (
+    WidgetTester tester,
+  ) async {
+    final MemoryModel m = MemoryModel.fromJson(<String, dynamic>{
+      ..._json,
+      'media': <Map<String, dynamic>>[
+        <String, dynamic>{'id': 1, 'type': 'PHOTO', 'displayOrder': 0},
+      ],
+    });
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          tripsProvider.overrideWith(
+            (Ref ref) async => <TripModel>[
+              const TripModel(id: 3, name: 'Kerala', status: TripStatus.active),
+            ],
+          ),
+          mediaUrlProvider.overrideWith((Ref ref, int id) async => null),
+        ],
+        child: MaterialApp(home: CaptureView(memory: m)),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Edit memory'), findsOneWidget);
+    expect(find.text('Sunset'), findsOneWidget);
+    expect(find.text('Lovely'), findsOneWidget);
+    expect(find.text('beach, food'), findsOneWidget);
+    expect(find.text('Friends only'), findsOneWidget);
+    expect(find.text('Kerala'), findsOneWidget);
+    expect(find.byTooltip('Remove photo'), findsOneWidget);
+    expect(find.text('Save'), findsOneWidget);
+    await tester.tap(find.byTooltip('Remove photo'));
+    await tester.pump();
+    expect(find.byTooltip('Remove photo'), findsNothing);
   });
+
+  test(
+    'fetch list passes the tag, detail and delete use the id path',
+    () async {
+      final FakeApi api = FakeApi();
+      final MemoryRepository repo = MemoryRepository(api);
+      expect((await repo.fetchMemories(tag: 'food')).single.id, 7);
+      expect(api.query, <String, dynamic>{'tag': 'food'});
+      await repo.fetchMemories();
+      expect(api.query, isNull);
+      expect((await repo.fetchMemory(7)).title, 'Sunset');
+      await repo.deleteMemory(7);
+      expect(api.calls, <String>[
+        'GET /memories',
+        'GET /memories',
+        'GET /memories/7',
+        'DELETE /memories/7',
+      ]);
+    },
+  );
 
   Widget app(List<MemoryModel> list) => ProviderScope(
         overrides: [
