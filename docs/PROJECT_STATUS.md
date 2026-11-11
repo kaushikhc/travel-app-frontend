@@ -1,6 +1,6 @@
 # Project status: Flutter client
 
-Last updated: 2026-11-11 (choose a username after the first Google sign-in)
+Last updated: 2026-11-11 (license fixes: bundled fonts and Google logo, licenses screen)
 
 ## Where things stand
 - Scaffold with feature folders: auth, profile, trip, memories, capture, explore, navigation.
@@ -11,6 +11,7 @@ Last updated: 2026-11-11 (choose a username after the first Google sign-in)
 - Wired to the API: email login and register, Google sign-in (native on Android via `POST /api/auth/google`, redirect plus `POST /api/auth/exchange` on web), `/auth/check`, `/auth/logout`, `GET|PUT /profile/me`.
 - Home tab (`TripsView`) on real data: `GET /api/trips/home` (current trip with day progress, upcoming, drafts) and `GET /api/statistics/me` (countries, trips, memories), with loading, empty and error states. `TripModel` uses the backend statuses (DRAFT/UPCOMING/ACTIVE/ARCHIVED).
 - Trip detail (`TripDetailView`, route `/trips/:id` inside the shell, opened by tapping Home trip cards): read-only. `tripDetailProvider(id)` loads `GET /trips/{id}` plus `/places`, `/accommodations`, `/transports`, `/visits` in parallel (`Future.wait`); shows cover, status, dates, day progress, description, tags and four lists with empty states. Create/edit not built yet.
+- Licenses (audit 2026-11-11, details in the backend's `docs/licenses.md`): Inter and Outfit are bundled in `assets/fonts` (OFL, licenses in `assets/licenses`); don't re-add `google_fonts`, which downloads fonts from Google at runtime. The Google "G" on the sign-in button is a local asset (`assets/images/google_g.png`), never hotlinked; button text must stay "Continue with Google" or "Sign up with Google". Profile page has an "Open-source licenses" button (`showLicensePage`); `main.dart` registers the font licenses and the country data credits. Unsplash mock images must be gone (or go through the Unsplash API with attribution) before launch.
 - Mock data only: memories, capture, explore. Trip covers: `TripResponse` carries only `coverMediaId` (Sam's call); the app fetches the signed link with `GET /api/media/{id}` (`mediaUrlProvider`), lazily per card, reused for 50 minutes because links expire after the backend's 1-hour download TTL. Add a batch endpoint only if a screen ever shows many covers.
 - Tests: 43 (trip detail models and view, choose username, photo upload, birthday picker and dates, media link caching, router redirect rules, auth notifier, time parsing, countries, time zone sync, trip model, Home view, smoke test). `flutter analyze` clean; `flutter build web` OK. Android build not yet verified on a device.
 

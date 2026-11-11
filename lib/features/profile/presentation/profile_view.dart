@@ -119,6 +119,11 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
               },
             ),
           IconButton(
+            tooltip: 'Open-source licenses',
+            icon: const Icon(Icons.info_outline_rounded),
+            onPressed: () => showLicensePage(context: context, applicationName: 'Travel App'),
+          ),
+          IconButton(
             tooltip: 'Sign Out',
             icon: const Icon(Icons.logout_rounded, color: Colors.redAccent),
             onPressed: () async {

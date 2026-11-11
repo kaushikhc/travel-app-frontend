@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'profile_state.dart';
 import '../../places/presentation/country_picker.dart';
 import 'widgets/birthday_picker.dart';
@@ -187,16 +186,16 @@ class _ProfileSetupViewState extends ConsumerState<ProfileSetupView> with Single
             ),
             child: Text(
               '✈️  Almost there!',
-              style: GoogleFonts.inter(color: _primary, fontSize: 12, fontWeight: FontWeight.w600),
+              style: TextStyle(fontFamily: 'Inter', color: _primary, fontSize: 12, fontWeight: FontWeight.w600),
             ),
           ),
           const SizedBox(height: 12),
           Text(
             _stepTitle(),
-            style: GoogleFonts.outfit(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold, height: 1.2),
+            style: TextStyle(fontFamily: 'Outfit', color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold, height: 1.2),
           ),
           const SizedBox(height: 6),
-          Text(_stepSubtitle(), style: GoogleFonts.inter(color: Colors.white54, fontSize: 14)),
+          Text(_stepSubtitle(), style: TextStyle(fontFamily: 'Inter', color: Colors.white54, fontSize: 14)),
         ],
       ),
     );
@@ -299,7 +298,7 @@ class _ProfileSetupViewState extends ConsumerState<ProfileSetupView> with Single
         Center(
           child: Padding(
             padding: const EdgeInsets.only(top: 8),
-            child: Text('Tap to upload photo', style: GoogleFonts.inter(color: Colors.white38, fontSize: 12)),
+            child: Text('Tap to upload photo', style: TextStyle(fontFamily: 'Inter', color: Colors.white38, fontSize: 12)),
           ),
         ),
         const SizedBox(height: 32),
@@ -332,7 +331,7 @@ class _ProfileSetupViewState extends ConsumerState<ProfileSetupView> with Single
             padding: const EdgeInsets.only(top: 8),
             child: Text(
               'Please select a country to continue',
-              style: GoogleFonts.inter(color: Colors.white38, fontSize: 12),
+              style: TextStyle(fontFamily: 'Inter', color: Colors.white38, fontSize: 12),
             ),
           ),
       ],
@@ -360,11 +359,11 @@ class _ProfileSetupViewState extends ConsumerState<ProfileSetupView> with Single
         BirthdayPicker(
           value: _birthday,
           onChanged: (DateTime? d) => setState(() => _birthday = d),
-          style: GoogleFonts.inter(color: Colors.white, fontSize: 15),
+          style: TextStyle(fontFamily: 'Inter', color: Colors.white, fontSize: 15),
           dropdownColor: const Color(0xFF1A1A2E),
           decoration: (String label) => InputDecoration(
             labelText: label,
-            labelStyle: GoogleFonts.inter(color: Colors.white54, fontSize: 13),
+            labelStyle: TextStyle(fontFamily: 'Inter', color: Colors.white54, fontSize: 13),
             filled: true,
             fillColor: Colors.white.withAlpha(15),
             enabledBorder: OutlineInputBorder(
@@ -381,7 +380,7 @@ class _ProfileSetupViewState extends ConsumerState<ProfileSetupView> with Single
         const SizedBox(height: 6),
         Text(
           'Your age is worked out from your birthday. Only you can see your birthday.',
-          style: GoogleFonts.inter(color: Colors.white38, fontSize: 12),
+          style: TextStyle(fontFamily: 'Inter', color: Colors.white38, fontSize: 12),
         ),
       ],
     );
@@ -392,7 +391,7 @@ class _ProfileSetupViewState extends ConsumerState<ProfileSetupView> with Single
   Widget _buildLabel(String text) {
     return Text(
       text,
-      style: GoogleFonts.inter(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600, letterSpacing: 0.4),
+      style: TextStyle(fontFamily: 'Inter', color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600, letterSpacing: 0.4),
     );
   }
 
@@ -409,10 +408,10 @@ class _ProfileSetupViewState extends ConsumerState<ProfileSetupView> with Single
       maxLines: maxLines,
       keyboardType: keyboardType,
       validator: validator,
-      style: GoogleFonts.inter(color: Colors.white, fontSize: 15),
+      style: TextStyle(fontFamily: 'Inter', color: Colors.white, fontSize: 15),
       decoration: InputDecoration(
         hintText: hint,
-        hintStyle: GoogleFonts.inter(color: Colors.white24, fontSize: 15),
+        hintStyle: TextStyle(fontFamily: 'Inter', color: Colors.white24, fontSize: 15),
         prefixIcon: Icon(icon, color: _primary, size: 20),
         filled: true,
         fillColor: Colors.white.withAlpha(15),
@@ -457,7 +456,7 @@ class _ProfileSetupViewState extends ConsumerState<ProfileSetupView> with Single
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                 ),
-                child: Text('Back', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+                child: Text('Back', style: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.w600)),
               ),
             ),
           if (_step > 0) const SizedBox(width: 12),
@@ -489,7 +488,7 @@ class _ProfileSetupViewState extends ConsumerState<ProfileSetupView> with Single
                       )
                     : Text(
                         isLastStep ? "Let's Go! 🚀" : 'Continue →',
-                        style: GoogleFonts.inter(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w700),
+                        style: TextStyle(fontFamily: 'Inter', color: Colors.white, fontSize: 15, fontWeight: FontWeight.w700),
                       ),
               ),
             ),
