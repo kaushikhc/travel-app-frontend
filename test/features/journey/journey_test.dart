@@ -23,6 +23,9 @@ class _FakeRepo implements JourneyRepository {
   Future<MapData> fetchMap() async => const MapData();
 
   @override
+  dynamic noSuchMethod(Invocation i) => super.noSuchMethod(i);
+
+  @override
   Future<TimelinePage> fetchTimeline({String? before, int limit = 50}) async {
     timelineCalls.add(before);
     return before == null
