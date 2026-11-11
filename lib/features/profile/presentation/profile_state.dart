@@ -9,11 +9,7 @@ class ProfileState {
   final ProfileModel? profile;
   final String? errorMessage;
 
-  const ProfileState({
-    required this.isLoading,
-    this.profile,
-    this.errorMessage,
-  });
+  const ProfileState({required this.isLoading, this.profile, this.errorMessage});
 
   factory ProfileState.idle() => const ProfileState(isLoading: false);
   factory ProfileState.initial() => const ProfileState(isLoading: true);
@@ -65,9 +61,9 @@ class ProfileNotifier extends Notifier<ProfileState> {
     required String displayName,
     String? bio,
     int? homeCountryId,
-    String? photoUrl,
+    int? photoMediaId,
     int? age,
-    String? birthday,
+    DateTime? birthday,
   }) async {
     final currentProfile = state.profile;
     state = ProfileState.loading(currentProfile);
@@ -76,7 +72,7 @@ class ProfileNotifier extends Notifier<ProfileState> {
         displayName: displayName,
         bio: bio,
         homeCountryId: homeCountryId,
-        photoUrl: photoUrl,
+        photoMediaId: photoMediaId,
         age: age,
         birthday: birthday,
       );
