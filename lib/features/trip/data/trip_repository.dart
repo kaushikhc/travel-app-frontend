@@ -32,15 +32,40 @@ class TripRepository {
     int? coverMediaId,
     List<String> tags = const <String>[],
   }) async {
-    final Map<String, dynamic> body = <String, dynamic>{
-      'name': name.trim(),
-      'description': (description == null || description.trim().isEmpty) ? null : description.trim(),
-      'startDate': startDate == null ? null : ApiDate.format(startDate),
-      'endDate': endDate == null ? null : ApiDate.format(endDate),
-      'coverMediaId': coverMediaId,
-      'tags': tags,
-    };
-    return TripModel.fromJson((await _apiClient.post('/trips', data: body)).data as Map<String, dynamic>);
+    return TripModel.fromJson(
+        (await _apiClient.post('/trips', data: _body(name, description, startDate, endDate, coverMediaId, tags))).data
+            as Map<String, dynamic>);
+  }
+
+  static Map<String, dynamic> _body(String name, String? description, DateTime? startDate, DateTime? endDate,
+          int? coverMediaId, List<String> tags) =>
+      <String, dynamic>{
+        'name': name.trim(),
+        'description': (description == null || description.trim().isEmpty) ? null : description.trim(),
+        'startDate': startDate == null ? null : ApiDate.format(startDate),
+        'endDate': endDate == null ? null : ApiDate.format(endDate),
+        'coverMediaId': coverMediaId,
+        'tags': tags,
+      };
+
+  /// PUT /api/trips/{id}. The backend replaces every field: a null description,
+  /// date or cover clears it, so always send the full current values.
+  Future<TripModel> updateTrip(
+    int id, {
+    required String name,
+    String? description,
+    DateTime? startDate,
+    DateTime? endDate,
+    int? coverMediaId,
+    List<String> tags = const <String>[],
+  }) async =>
+      TripModel.fromJson(
+          (await _apiClient.put('/trips/$id', data: _body(name, description, startDate, endDate, coverMediaId, tags))).data
+              as Map<String, dynamic>);
+
+  /// DELETE /api/trips/{id}: removes the trip and everything on it.
+  Future<void> deleteTrip(int id) async {
+    await _apiClient.delete('/trips/$id');
   }
 
   Future<List<T>> _list<T>(String path, T Function(Map<String, dynamic>) parse) async =>

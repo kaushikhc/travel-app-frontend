@@ -5,6 +5,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:travel_app_frontend/core/network/api_client.dart';
 import 'package:travel_app_frontend/features/trip/data/trip_repository.dart';
 import 'package:travel_app_frontend/features/trip/presentation/create_trip_view.dart';
+import 'package:travel_app_frontend/features/media/data/media_repository.dart';
+import 'package:travel_app_frontend/features/trip/domain/trip_model.dart';
 
 class FakeApi extends ApiClient {
   FakeApi() : super(baseUrl: 'https://api.example/api');
@@ -24,6 +26,7 @@ class FakeApi extends ApiClient {
 }
 
 void main() {
+  editTripTests();
   test('createTrip posts the trip as the API expects', () async {
     final FakeApi api = FakeApi();
     final trip = await TripRepository(api).createTrip(
@@ -60,5 +63,56 @@ void main() {
     await tester.pump();
     expect(find.text('Trip name is required'), findsOneWidget);
     expect(api.posts, isEmpty);
+  });
+}
+
+class _EditApi extends FakeApi {
+  final List<String> puts = <String>[];
+  Object? putBody;
+
+  @override
+  Future<Response> put(String path, {dynamic data}) async {
+    puts.add(path);
+    putBody = data;
+    return Response(
+      requestOptions: RequestOptions(path: path),
+      statusCode: 200,
+      data: <String, dynamic>{'id': 9, 'name': 'Goa', 'status': 'UPCOMING'},
+    );
+  }
+}
+
+void editTripTests() {
+  test('updateTrip puts the full trip body', () async {
+    final _EditApi api = _EditApi();
+    await TripRepository(api).updateTrip(9, name: ' Goa ', startDate: DateTime(2026, 12, 3), coverMediaId: 5, tags: <String>['a']);
+    expect(api.puts, <String>['/trips/9']);
+    expect(api.putBody, <String, dynamic>{
+      'name': 'Goa',
+      'description': null,
+      'startDate': '2026-12-03',
+      'endDate': null,
+      'coverMediaId': 5,
+      'tags': <String>['a'],
+    });
+  });
+
+  testWidgets('edit mode prefills the form', (WidgetTester tester) async {
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        tripRepositoryProvider.overrideWithValue(TripRepository(_EditApi())),
+        mediaUrlProvider.overrideWith((Ref ref, int id) async => null),
+      ],
+      child: MaterialApp(
+        home: CreateTripView(
+          trip: TripModel(id: 9, name: 'Goa', description: 'Sun', status: TripStatus.draft, coverMediaId: 5, tags: const <String>['beach']),
+        ),
+      ),
+    ));
+    await tester.pump();
+    expect(find.text('Edit trip'), findsOneWidget);
+    expect(find.text('Goa'), findsOneWidget);
+    expect(find.text('beach'), findsOneWidget);
+    expect(find.text('Save'), findsOneWidget);
   });
 }

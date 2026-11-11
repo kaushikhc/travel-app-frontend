@@ -7,7 +7,9 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../profile/presentation/widgets/profile_photo_upload.dart';
+import '../../media/data/media_repository.dart';
 import '../data/trip_repository.dart';
+import '../domain/trip_model.dart';
 
 /// Same limits as the backend's `Tags` rules.
 const int maxTagsPerTrip = 30;
@@ -32,11 +34,14 @@ String createTripError(Object error) {
     if (data is Map<String, dynamic> && data['message'] is String) return data['message'] as String;
     if (error.response == null) return 'Could not reach the server. Please try again.';
   }
-  return 'Could not create the trip. Please try again.';
+  return 'Could not save the trip. Please try again.';
 }
 
 class CreateTripView extends ConsumerStatefulWidget {
-  const CreateTripView({super.key});
+  /// When set, the form edits this trip instead of creating a new one.
+  final TripModel? trip;
+
+  const CreateTripView({super.key, this.trip});
 
   @override
   ConsumerState<CreateTripView> createState() => _CreateTripViewState();
@@ -50,11 +55,28 @@ class _CreateTripViewState extends ConsumerState<CreateTripView> {
   DateTime? _start;
   DateTime? _end;
   UploadedPhoto? _cover;
+  int? _coverMediaId;
   bool _uploading = false;
   bool _saving = false;
   String? _dateError;
 
   static final DateFormat _fmt = DateFormat.yMMMd();
+
+  bool get _editing => widget.trip != null;
+
+  @override
+  void initState() {
+    super.initState();
+    final TripModel? t = widget.trip;
+    if (t != null) {
+      _name.text = t.name;
+      _description.text = t.description ?? '';
+      _tags.text = t.tags.join(', ');
+      _start = t.startDate;
+      _end = t.endDate;
+      _coverMediaId = t.coverMediaId;
+    }
+  }
 
   @override
   void dispose() {
@@ -96,7 +118,12 @@ class _CreateTripViewState extends ConsumerState<CreateTripView> {
     setState(() => _uploading = true);
     try {
       final UploadedPhoto? photo = await pickAndUploadPhoto(ref);
-      if (photo != null && mounted) setState(() => _cover = photo);
+      if (photo != null && mounted) {
+        setState(() {
+          _cover = photo;
+          _coverMediaId = photo.mediaId;
+        });
+      }
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(photoUploadError(e))));
     } finally {
@@ -111,14 +138,27 @@ class _CreateTripViewState extends ConsumerState<CreateTripView> {
     if (!formOk || dateError != null || _saving) return;
     setState(() => _saving = true);
     try {
-      await ref.read(tripRepositoryProvider).createTrip(
+      final TripRepository repo = ref.read(tripRepositoryProvider);
+      final List<String> tags = parseTags(_tags.text);
+      if (_editing) {
+        final int id = widget.trip!.id;
+        await repo.updateTrip(id,
             name: _name.text,
             description: _description.text,
             startDate: _start,
             endDate: _end,
-            coverMediaId: _cover?.mediaId,
-            tags: parseTags(_tags.text),
-          );
+            coverMediaId: _coverMediaId,
+            tags: tags);
+        ref.invalidate(tripDetailProvider(id));
+      } else {
+        await repo.createTrip(
+            name: _name.text,
+            description: _description.text,
+            startDate: _start,
+            endDate: _end,
+            coverMediaId: _coverMediaId,
+            tags: tags);
+      }
       ref.invalidate(homeOverviewProvider);
       ref.invalidate(travelStatsProvider);
       if (!mounted) return;
@@ -135,8 +175,10 @@ class _CreateTripViewState extends ConsumerState<CreateTripView> {
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
     final Uint8List? coverBytes = _cover?.bytes;
+    final int? existingCover = _cover == null ? _coverMediaId : null;
+    final String? existingUrl = existingCover == null ? null : ref.watch(mediaUrlProvider(existingCover)).value;
     return Scaffold(
-      appBar: AppBar(title: const Text('New trip')),
+      appBar: AppBar(title: Text(_editing ? 'Edit trip' : 'New trip')),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
@@ -205,20 +247,42 @@ class _CreateTripViewState extends ConsumerState<CreateTripView> {
                           child: Image.memory(coverBytes, fit: BoxFit.cover),
                         ),
                       ),
+                    if (existingCover != null)
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: AspectRatio(
+                          aspectRatio: 16 / 9,
+                          child: existingUrl == null
+                              ? ColoredBox(color: theme.colorScheme.primaryContainer)
+                              : Image.network(existingUrl, fit: BoxFit.cover,
+                                  errorBuilder: (BuildContext c, Object e, StackTrace? s) =>
+                                      ColoredBox(color: theme.colorScheme.primaryContainer)),
+                        ),
+                      ),
                     const SizedBox(height: 8),
                     OutlinedButton.icon(
                       onPressed: _uploading ? null : _pickCover,
                       icon: _uploading
                           ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
                           : const Icon(Icons.photo_outlined),
-                      label: Text(_cover == null ? 'Add cover photo (optional)' : 'Change cover photo'),
+                      label: Text(_coverMediaId == null ? 'Add cover photo (optional)' : 'Change cover photo'),
+                    ),
+                    if (_editing && _coverMediaId != null)
+                      TextButton(
+                        onPressed: () => setState(() {
+                          _cover = null;
+                          _coverMediaId = null;
+                        }),
+                        child: const Text('Remove cover photo'),
+                      ),
+                    const SizedBox(height: 0
                     ),
                     const SizedBox(height: 24),
                     FilledButton(
                       onPressed: (_saving || _uploading) ? null : _save,
                       child: _saving
                           ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                          : const Text('Create trip'),
+                          : Text(_editing ? 'Save' : 'Create trip'),
                     ),
                   ],
                 ),
