@@ -1,6 +1,6 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../data/auth_repository.dart';
 import 'auth_state.dart';
@@ -54,18 +54,21 @@ class _LoginViewState extends ConsumerState<LoginView> {
         });
       }
     } else {
-      final success = await authNotifier.login(
+      // On success the router moves on by itself.
+      await authNotifier.login(
         _usernameController.text.trim(),
         _passwordController.text.trim(),
       );
-
-      if (success && mounted) {
-        context.go('/home');
-      }
     }
   }
 
   Future<void> _loginWithGoogle() async {
+    if (!kIsWeb) {
+      // Android: native account picker; the router moves on once signed in.
+      await ref.read(authStateProvider.notifier).signInWithGoogleNative();
+      return;
+    }
+    // Web: full-page redirect to the backend; it comes back to /#/?code=...
     final googleUrl = ref.read(authRepositoryProvider).googleAuthUrl;
     final uri = Uri.parse(googleUrl);
     if (await canLaunchUrl(uri)) {

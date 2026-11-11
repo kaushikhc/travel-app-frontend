@@ -1,99 +1,122 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/api_client.dart';
-import '../domain/user_model.dart';
 
-final authRepositoryProvider = Provider<AuthRepository>((ref) {
-  final apiClient = ref.watch(apiClientProvider);
-  return AuthRepository(apiClient);
+final authRepositoryProvider = Provider<AuthRepository>((Ref ref) {
+  return AuthRepository(ref.watch(apiClientProvider));
 });
+
+/// A successful sign-in: the app JWT and the traveler's username.
+class AuthSession {
+  final String token;
+  final String username;
+
+  const AuthSession({required this.token, required this.username});
+
+  static AuthSession? fromResponse(Response<dynamic> response) {
+    final dynamic data = response.data;
+    if (response.statusCode != 200 || data is! Map<String, dynamic>) return null;
+    final String? token = data['token'] as String?;
+    final String? username = data['username'] as String?;
+    if (token == null || token.isEmpty || username == null) return null;
+    return AuthSession(token: token, username: username);
+  }
+}
+
+/// Whether a stored token is still accepted by the server.
+enum SessionCheck { valid, invalid, unknown }
 
 class AuthRepository {
   final ApiClient _apiClient;
 
-  AuthRepository(this._apiClient);
+  const AuthRepository(this._apiClient);
 
-  /// Dynamically computes Google OAuth2 URL based on configured API base URL
+  /// Backend URL that starts the web Google sign-in redirect.
   String get googleAuthUrl {
-    final baseUrl = _apiClient.baseUrl;
-    final domain = baseUrl.replaceAll(RegExp(r'/api/?$'), '');
+    final String domain = _apiClient.baseUrl.replaceAll(RegExp(r'/api/?$'), '');
     return '$domain/oauth2/authorization/google';
   }
 
   /// POST /api/auth/login
-  Future<String?> login(String username, String password) async {
+  Future<AuthSession> login(String username, String password) async {
     try {
-      final response = await _apiClient.post(
+      final Response<dynamic> response = await _apiClient.post(
         '/auth/login',
-        data: {
-          'username': username,
-          'password': password,
-        },
+        data: <String, String>{'username': username, 'password': password},
       );
-      if (response.statusCode == 200 && response.data != null) {
-        final data = response.data as Map<String, dynamic>;
-        return data['token'] as String?;
-      }
-      return null;
+      return AuthSession.fromResponse(response) ?? (throw Exception('Invalid username or password.'));
     } on DioException catch (e) {
-      if (e.response?.statusCode == 401 || e.response?.statusCode == 400) {
-        throw Exception('Invalid username or password.');
-      }
-      throw Exception('Server error during login: ${e.message}');
+      final int? status = e.response?.statusCode;
+      if (status == 401 || status == 400) throw Exception('Invalid username or password.');
+      throw Exception('Could not reach the server. Please try again.');
+    }
+  }
+
+  /// POST /api/auth/exchange: swaps the one-time code from the web Google redirect (valid 60 s).
+  Future<AuthSession> exchangeGoogleCode(String code) async {
+    try {
+      final Response<dynamic> response = await _apiClient.post('/auth/exchange', data: <String, String>{'code': code});
+      return AuthSession.fromResponse(response) ?? (throw Exception('Google sign-in failed.'));
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 401) throw Exception('Google sign-in expired. Please try again.');
+      throw Exception('Could not reach the server. Please try again.');
+    }
+  }
+
+  /// POST /api/auth/google: native sign-in with a Google ID token.
+  Future<AuthSession> signInWithGoogleIdToken(String idToken) async {
+    try {
+      final Response<dynamic> response = await _apiClient.post('/auth/google', data: <String, String>{'idToken': idToken});
+      return AuthSession.fromResponse(response) ?? (throw Exception('Google sign-in failed.'));
+    } on DioException catch (e) {
+      final int? status = e.response?.statusCode;
+      if (status == 401) throw Exception('Google sign-in failed. Please try again.');
+      if (status == 403) throw Exception('Your Google account email is not verified.');
+      throw Exception('Could not reach the server. Please try again.');
     }
   }
 
   /// POST /api/auth/register
-  Future<UserModel> register({
+  Future<void> register({
     required String username,
     required String email,
     required String password,
     required String displayName,
   }) async {
     try {
-      final response = await _apiClient.post(
+      await _apiClient.post(
         '/auth/register',
-        data: {
+        data: <String, String>{
           'username': username,
           'email': email,
           'password': password,
           'displayName': displayName,
         },
       );
-
-      if (response.statusCode == 201 && response.data != null) {
-        final data = response.data as Map<String, dynamic>;
-        return UserModel(
-          id: data['id']?.toString() ?? '1',
-          username: data['username'] as String? ?? username,
-          email: data['email'] as String? ?? email,
-        );
-      }
-      throw Exception('Failed to create account.');
     } on DioException catch (e) {
       if (e.response?.statusCode == 400) {
-        throw Exception('Registration failed: Username or Email already exists.');
+        throw Exception('Registration failed: username or email already exists, or a field is invalid.');
       }
-      throw Exception('Server error during registration: ${e.message}');
+      throw Exception('Could not reach the server. Please try again.');
     }
   }
 
-  /// GET /api/auth/check
-  Future<bool> checkLoginStatus() async {
+  /// GET /api/auth/check with the current token.
+  Future<SessionCheck> checkSession() async {
     try {
-      final response = await _apiClient.get('/auth/check');
-      return response.statusCode == 200;
-    } catch (_) {
-      return false;
+      final Response<dynamic> response = await _apiClient.get('/auth/check');
+      return response.statusCode == 200 ? SessionCheck.valid : SessionCheck.invalid;
+    } on DioException catch (e) {
+      final int? status = e.response?.statusCode;
+      if (status == 401 || status == 403) return SessionCheck.invalid;
+      return SessionCheck.unknown;
     }
   }
 
-  /// POST /api/auth/logout
+  /// POST /api/auth/logout (clears the server cookie; errors are ignored).
   Future<void> logout() async {
     try {
       await _apiClient.post('/auth/logout');
-    } catch (_) {
-      // Ignore logout network errors
-    }
+    } catch (_) {}
   }
 }

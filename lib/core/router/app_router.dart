@@ -11,83 +11,24 @@ import '../../features/explore/presentation/explore_view.dart';
 import '../../features/profile/presentation/profile_view.dart';
 import '../../features/profile/presentation/profile_setup_view.dart';
 import '../../features/profile/presentation/profile_state.dart';
+import '../../features/auth/presentation/google_callback_view.dart';
+import 'auth_redirect.dart';
 
-/// A [ChangeNotifier] that wraps [AuthState] and [ProfileState] changes so
-/// [GoRouter] can listen to both without rebuilding the router instance.
+/// Tells [GoRouter] to re-run [authRedirect] when auth or profile state changes.
 class RouterNotifier extends ChangeNotifier {
   final Ref _ref;
 
   RouterNotifier(this._ref) {
-    _ref.listen<AuthState>(authStateProvider, (previous, next) {
-      // Reset profile state when user logs out
-      if (next.status == AuthStatus.unauthenticated) {
-        _ref.read(profileNotifierProvider.notifier).reset();
-      }
-      notifyListeners();
-    });
-    _ref.listen<ProfileState>(profileNotifierProvider, (previous, next) {
-      notifyListeners();
-    });
+    _ref.listen<AuthState>(authStateProvider, (AuthState? previous, AuthState next) => notifyListeners());
+    _ref.listen<ProfileState>(profileNotifierProvider, (ProfileState? previous, ProfileState next) => notifyListeners());
   }
 
   String? redirect(BuildContext context, GoRouterState state) {
-    final authState = _ref.read(authStateProvider);
-    final currentPath = state.matchedLocation;
-
-    // ── OAuth callback ────────────────────────────────────────────────────────
-    final token = state.uri.queryParameters['token'];
-    final username = state.uri.queryParameters['username'];
-    final email = state.uri.queryParameters['email'];
-
-    if (token != null && token.isNotEmpty) {
-      // Set auth state with the token from the callback
-      _ref.read(authStateProvider.notifier).handleOAuthCallback(
-            token: token,
-            username: username ?? 'Traveler',
-            email: email,
-          );
-      // Kick off profile load — router re-evaluates when ProfileState changes
-      _ref.read(profileNotifierProvider.notifier).loadProfile();
-      return '/loading';
-    }
-
-    // ── Auth guard ───────────────────────────────────────────────────────────
-    final isAuthenticated = authState.status == AuthStatus.authenticated;
-    final isOnLogin = currentPath == '/login';
-    final isOnSetup = currentPath == '/profile-setup';
-    final isOnLoading = currentPath == '/loading';
-
-    if (!isAuthenticated && !isOnLogin) return '/login';
-
-    if (isAuthenticated && isOnLogin) {
-      // Kick off profile load; router re-fires once ProfileState resolves
-      _ref.read(profileNotifierProvider.notifier).loadProfileOnce();
-      return '/loading';
-    }
-
-    // ── Profile completeness guard ────────────────────────────────────────────
-    if (isAuthenticated) {
-      final profileState = _ref.read(profileNotifierProvider);
-
-      // While loading: show loading screen
-      if (profileState.isLoading && !isOnLoading) return '/loading';
-
-      // Profile failed to load (error) — let them into home anyway, they can retry
-      if (!profileState.isLoading && profileState.profile == null && !isOnLoading) {
-        // Error state: proceed to home rather than infinite loop
-        return '/home';
-      }
-
-      // Profile loaded and incomplete → force setup
-      if (profileState.needsSetup && !isOnSetup) return '/profile-setup';
-
-      // Profile is complete → don't stay on setup or loading pages
-      if (!profileState.isLoading && !profileState.needsSetup && profileState.profile != null) {
-        if (isOnSetup || isOnLoading) return '/home';
-      }
-    }
-
-    return null;
+    return authRedirect(
+      auth: _ref.read(authStateProvider),
+      profile: _ref.read(profileNotifierProvider),
+      uri: state.uri,
+    );
   }
 }
 
@@ -99,13 +40,16 @@ final routerProvider = Provider<GoRouter>((ref) {
   final notifier = ref.watch(routerNotifierProvider);
 
   return GoRouter(
-    initialLocation: '/login',
+    initialLocation: AppRoutes.loading,
     refreshListenable: notifier,
     redirect: notifier.redirect,
     routes: [
       GoRoute(
-        path: '/',
-        builder: (context, state) => const LoginView(),
+        path: AppRoutes.root,
+        builder: (BuildContext context, GoRouterState state) {
+          final String? code = state.uri.queryParameters['code'];
+          return code != null && code.isNotEmpty ? GoogleCallbackView(code: code) : const LoginView();
+        },
       ),
       GoRoute(
         path: '/login',

@@ -1,5 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../core/network/api_client.dart';
+import '../../auth/presentation/auth_state.dart';
 import '../data/profile_repository.dart';
 import '../domain/profile_model.dart';
 
@@ -25,42 +25,27 @@ class ProfileState {
   bool get needsSetup => !isLoading && profile != null && !profile!.isProfileComplete;
 }
 
+/// Loads the profile whenever a session starts and resets when it ends (it rebuilds on sign-in/out).
 class ProfileNotifier extends Notifier<ProfileState> {
-  late final ProfileRepository _repository;
-  late final ApiClient _apiClient;
+  ProfileRepository get _repository => ref.read(profileRepositoryProvider);
 
   @override
   ProfileState build() {
-    _repository = ref.watch(profileRepositoryProvider);
-    _apiClient = ref.watch(apiClientProvider);
-    // Only auto-load if a token is already present (e.g. on page refresh with stored token).
-    // For OAuth and credentials login, loadProfile() is called explicitly from the router.
-    if (_apiClient.hasAuthToken) {
-      loadProfile();
-      return ProfileState.initial();
-    }
-    return ProfileState.idle();
+    final bool signedIn = ref.watch(authStateProvider.select((AuthState s) => s.isAuthenticated));
+    if (!signedIn) return ProfileState.idle();
+    Future<void>.microtask(loadProfile);
+    return ProfileState.initial();
   }
 
   Future<void> loadProfile() async {
+    if (!ref.mounted) return;
     state = ProfileState.loading(state.profile);
     try {
       final profile = await _repository.fetchMyProfile();
-      state = ProfileState.success(profile);
+      if (ref.mounted) state = ProfileState.success(profile);
     } catch (e) {
-      state = ProfileState.error(e.toString().replaceAll('Exception: ', ''), state.profile);
+      if (ref.mounted) state = ProfileState.error(e.toString().replaceAll('Exception: ', ''), state.profile);
     }
-  }
-
-  /// Loads the profile only if not already loaded. Safe to call from the router redirect.
-  Future<void> loadProfileOnce() async {
-    if (!state.isLoading && state.profile != null) return;
-    await loadProfile();
-  }
-
-  /// Reset to idle (called on logout).
-  void reset() {
-    state = ProfileState.idle();
   }
 
   Future<bool> updateProfile({
@@ -82,10 +67,10 @@ class ProfileNotifier extends Notifier<ProfileState> {
         age: age,
         birthday: birthday,
       );
-      state = ProfileState.success(updated);
+      if (ref.mounted) state = ProfileState.success(updated);
       return true;
     } catch (e) {
-      state = ProfileState.error(e.toString().replaceAll('Exception: ', ''), currentProfile);
+      if (ref.mounted) state = ProfileState.error(e.toString().replaceAll('Exception: ', ''), currentProfile);
       return false;
     }
   }
