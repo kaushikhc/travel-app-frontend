@@ -19,7 +19,7 @@ in its `docs/` folder too.
 - Strict null safety, immutable models, explicit types.
 - The router's `redirect` must only read state, never change it. Side effects belong in notifiers.
 - The API returns UTC timestamps; convert to the device's local time only for display.
-- Never commit secrets. The API base URL comes from `--dart-define=API_BASE_URL=...`.
+- Never commit secrets. The API base URL comes from `--dart-define-from-file=env/<dev|qa|prod>.json` (see README).
 
 ## Working rules
 - Write code only when the product owner (Sam) has authorized the change.
