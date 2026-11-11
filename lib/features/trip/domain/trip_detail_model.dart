@@ -6,6 +6,9 @@ import 'trip_model.dart';
 String _placeName(Object? place) =>
     place is Map<String, dynamic> ? (place['name'] as String? ?? '') : '';
 
+/// Id of a `PlaceResponse`, or null when absent.
+int? _placeId(Object? place) => place is Map<String, dynamic> ? (place['id'] as num?)?.toInt() : null;
+
 DateTime? _localDate(String? value) {
   if (value == null || value.isEmpty) return null;
   final DateTime? parsed = DateTime.tryParse(value);
@@ -16,18 +19,20 @@ DateTime? _localDate(String? value) {
 @immutable
 class TripPlaceItem {
   final int id;
+  final int? placeId;
   final String name;
   final String? type;
   final DateTime? plannedDate;
   final String? status;
   final String? notes;
 
-  const TripPlaceItem({required this.id, required this.name, this.type, this.plannedDate, this.status, this.notes});
+  const TripPlaceItem({required this.id, this.placeId, required this.name, this.type, this.plannedDate, this.status, this.notes});
 
   factory TripPlaceItem.fromJson(Map<String, dynamic> json) {
     final Object? place = json['place'];
     return TripPlaceItem(
       id: (json['id'] as num).toInt(),
+      placeId: _placeId(place),
       name: _placeName(place),
       type: place is Map<String, dynamic> ? place['type'] as String? : null,
       plannedDate: _localDate(json['plannedDate'] as String?),
@@ -88,15 +93,17 @@ class TransportItem {
 @immutable
 class VisitItem {
   final int id;
+  final int? placeId;
   final String name;
   final DateTime? visitedAt;
   final DateTime? leftAt;
   final String? notes;
 
-  const VisitItem({required this.id, required this.name, this.visitedAt, this.leftAt, this.notes});
+  const VisitItem({required this.id, this.placeId, required this.name, this.visitedAt, this.leftAt, this.notes});
 
   factory VisitItem.fromJson(Map<String, dynamic> json) => VisitItem(
         id: (json['id'] as num).toInt(),
+        placeId: _placeId(json['place']),
         name: _placeName(json['place']),
         visitedAt: ApiTime.parseUtc(json['visitedAt'] as String?),
         leftAt: ApiTime.parseUtc(json['leftAt'] as String?),

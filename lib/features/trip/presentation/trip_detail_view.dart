@@ -4,10 +4,12 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../../core/router/auth_redirect.dart';
 import '../../../core/time/api_time.dart';
+import '../../../core/network/api_errors.dart';
 import '../../media/data/media_repository.dart';
 import '../data/trip_repository.dart';
 import '../domain/trip_detail_model.dart';
 import '../domain/trip_model.dart';
+import 'widgets/itinerary_dialogs.dart';
 
 /// Read-only detail of one trip: header, then places, stays, transport and visits.
 class TripDetailView extends ConsumerWidget {
@@ -151,8 +153,13 @@ class TripDetailView extends ConsumerWidget {
             if (p.plannedDate != null) DateFormat.yMMMd().format(p.plannedDate!),
             if (p.status != null) _title(p.status!),
           ];
-          return _row(p.name, parts.join(' · '));
-        }).toList(growable: false)),
+          return _row(p.name, parts.join(' · '),
+              menu: _menu(
+                onEdit: () => _edit(context, ref, () => showTripPlaceDialog(context, tripId: tripId, existing: p)),
+                onDelete: () => _remove(context, ref, 'this place', () => ref.read(tripRepositoryProvider).deleteTripPlace(tripId, p.id)),
+              ));
+        }).toList(growable: false),
+            onAdd: () => _edit(context, ref, () => showTripPlaceDialog(context, tripId: tripId)), addLabel: 'Add place'),
         _section(theme, 'Stays', 'No stays added yet.', d.stays.map((StayItem s) {
           return _row(s.name, _range(s.checkIn, s.checkOut));
         }).toList(growable: false)),
@@ -165,27 +172,71 @@ class TripDetailView extends ConsumerWidget {
           ].where((String x) => x.isNotEmpty).join(' · '));
         }).toList(growable: false)),
         _section(theme, 'Visits', 'No visits logged yet.', d.visits.map((VisitItem v) {
-          return _row(v.name, v.visitedAt == null ? '' : ApiTime.formatDateTime(v.visitedAt!));
-        }).toList(growable: false)),
+          return _row(v.name, v.visitedAt == null ? '' : ApiTime.formatDateTime(v.visitedAt!),
+              menu: _menu(
+                onEdit: () => _edit(context, ref, () => showVisitDialog(context, tripId: tripId, planned: d.places, existing: v)),
+                onDelete: () => _remove(context, ref, 'this visit', () => ref.read(tripRepositoryProvider).deleteVisit(tripId, v.id)),
+              ));
+        }).toList(growable: false),
+            onAdd: () => _edit(context, ref, () => showVisitDialog(context, tripId: tripId, planned: d.places)), addLabel: 'Log visit'),
       ],
     );
   }
 
-  static Widget _section(ThemeData theme, String title, String empty, List<Widget> rows) => Padding(
+  /// Runs [dialog] (which returns true when it changed something) and refreshes the trip.
+  Future<void> _edit(BuildContext context, WidgetRef ref, Future<bool> Function() dialog) async {
+    if (await dialog()) _refresh(ref);
+  }
+
+  Future<void> _remove(BuildContext context, WidgetRef ref, String what, Future<void> Function() delete) async {
+    if (!await confirmDelete(context, what) || !context.mounted) return;
+    try {
+      await delete();
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(apiErrorMessage(e, 'Could not delete. Please try again.'))));
+      }
+      return;
+    }
+    _refresh(ref);
+  }
+
+  void _refresh(WidgetRef ref) {
+    ref.invalidate(tripDetailProvider(tripId));
+    ref.invalidate(homeOverviewProvider);
+    ref.invalidate(travelStatsProvider);
+  }
+
+  static Widget _menu({required VoidCallback onEdit, required VoidCallback onDelete}) => PopupMenuButton<String>(
+        tooltip: 'Options',
+        onSelected: (String v) => v == 'edit' ? onEdit() : onDelete(),
+        itemBuilder: (BuildContext c) => const <PopupMenuEntry<String>>[
+          PopupMenuItem<String>(value: 'edit', child: Text('Edit')),
+          PopupMenuItem<String>(value: 'delete', child: Text('Delete')),
+        ],
+      );
+
+  static Widget _section(ThemeData theme, String title, String empty, List<Widget> rows, {VoidCallback? onAdd, String addLabel = 'Add'}) => Padding(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            Text(title, style: theme.textTheme.titleMedium),
+            Row(
+              children: <Widget>[
+                Expanded(child: Text(title, style: theme.textTheme.titleMedium)),
+                if (onAdd != null) TextButton.icon(icon: const Icon(Icons.add), label: Text(addLabel), onPressed: onAdd),
+              ],
+            ),
             const SizedBox(height: 4),
             if (rows.isEmpty) Text(empty, style: theme.textTheme.bodyMedium?.copyWith(color: theme.hintColor)) else ...rows,
           ],
         ),
       );
 
-  static Widget _row(String title, String subtitle) => ListTile(
+  static Widget _row(String title, String subtitle, {Widget? menu}) => ListTile(
         contentPadding: EdgeInsets.zero,
         dense: true,
+        trailing: menu,
         title: Text(title.isEmpty ? 'Untitled' : title),
         subtitle: subtitle.isEmpty ? null : Text(subtitle),
       );
