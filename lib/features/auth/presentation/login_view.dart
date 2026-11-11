@@ -166,18 +166,11 @@ class _LoginViewState extends ConsumerState<LoginView> {
                         height: 48,
                         child: OutlinedButton.icon(
                           onPressed: _loginWithGoogle,
-                          icon: Image.network(
-                            'https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg',
-                            height: 22,
-                            width: 22,
-                            errorBuilder: (context, error, stackTrace) => const Icon(
-                              Icons.g_mobiledata,
-                              size: 28,
-                              color: Colors.redAccent,
-                            ),
-                          ),
+                          // Official Google "G" mark, bundled locally per Google's
+                          // sign-in branding guidelines (never hotlinked).
+                          icon: Image.asset('assets/images/google_g.png', height: 20, width: 20),
                           label: Text(
-                            _isRegistering ? 'Register with Google' : 'Continue with Google',
+                            _isRegistering ? 'Sign up with Google' : 'Continue with Google',
                             style: const TextStyle(
                               fontWeight: FontWeight.w600,
                               fontSize: 15,
