@@ -18,8 +18,8 @@ in its `docs/` folder too.
 - State: Riverpod (`flutter_riverpod` 3, `Notifier`). Routing: `go_router`. HTTP: `dio` via `lib/core/network/api_client.dart`.
 - Strict null safety, immutable models, explicit types.
 - The router's `redirect` must only read state, never change it. Side effects belong in notifiers.
-- The API returns UTC timestamps, often without an offset. Parse them with `ApiTime.parseUtc` (`lib/core/time/api_time.dart`), never `DateTime.parse`, and format with the `ApiTime.format*` helpers, which convert to the device zone.
-- Never commit secrets. The API base URL comes from `--dart-define=API_BASE_URL=...`.
+- The API returns UTC timestamps; convert to the device's local time only for display.
+- Never commit secrets. The API base URL comes from `--dart-define-from-file=env/<dev|qa|prod>.json` (see README).
 
 ## Working rules
 - Write code only when the product owner (Sam) has authorized the change.
