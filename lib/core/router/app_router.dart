@@ -1,3 +1,4 @@
+import '../../features/auth/presentation/choose_username_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -58,6 +59,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/loading',
         builder: (context, state) => const _LoadingScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.chooseUsername,
+        builder: (context, state) => const ChooseUsernameView(),
       ),
       GoRoute(
         path: '/profile-setup',

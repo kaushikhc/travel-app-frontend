@@ -19,6 +19,9 @@ class ProfileState {
       ProfileState(isLoading: false, errorMessage: message, profile: current);
 
   /// True when profile has been loaded and mandatory fields are incomplete.
+  /// True after a first Google sign-in until a username is picked or the step is skipped.
+  bool get needsUsername => !isLoading && profile != null && !profile!.usernameChosen;
+
   bool get needsSetup => !isLoading && profile != null && !profile!.isProfileComplete;
 }
 

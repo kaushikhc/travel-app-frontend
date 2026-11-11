@@ -76,6 +76,31 @@ class AuthRepository {
     }
   }
 
+  /// POST /api/auth/choose-username, once after a first Google sign-in. Both fields optional:
+  /// sending neither skips. Returns a new session, because the token names the username.
+  Future<AuthSession> chooseUsername({String? username, String? password}) async {
+    try {
+      final Response<dynamic> response = await _apiClient.post(
+        '/auth/choose-username',
+        data: <String, String>{
+          if (username != null && username.trim().isNotEmpty) 'username': username.trim(),
+          if (password != null && password.isNotEmpty) 'password': password,
+        },
+      );
+      return AuthSession.fromResponse(response) ?? (throw Exception('Could not save. Please try again.'));
+    } on DioException catch (e) {
+      final int? status = e.response?.statusCode;
+      if (status == 409) throw Exception('That username is taken. Please try another.');
+      if (status == 400) throw Exception(_serverMessage(e) ?? 'Please check the username and password.');
+      throw Exception('Could not reach the server. Please try again.');
+    }
+  }
+
+  static String? _serverMessage(DioException e) {
+    final dynamic data = e.response?.data;
+    return data is Map<String, dynamic> ? data['message'] as String? : null;
+  }
+
   /// POST /api/auth/register
   Future<void> register({
     required String username,

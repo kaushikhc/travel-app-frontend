@@ -51,6 +51,17 @@ void main() {
       expect(_go('/profile-setup', _signedIn, p), isNull);
     });
 
+    test('a first Google sign-in picks a username before profile setup', () {
+      final ProfileState p = ProfileState.success(const ProfileModel(
+          travelerId: 1, username: 'ana@example.com', displayName: 'Ana', email: 'ana@example.com',
+          usernameChosen: false));
+      expect(_go('/loading', _signedIn, p), AppRoutes.chooseUsername);
+      expect(_go('/profile-setup', _signedIn, p), AppRoutes.chooseUsername);
+      expect(_go('/choose-username', _signedIn, p), isNull);
+      expect(_go('/choose-username', _signedIn, ProfileState.success(_incomplete)), AppRoutes.profileSetup);
+      expect(_go('/choose-username', _signedIn, ProfileState.success(_complete)), AppRoutes.home);
+    });
+
     test('complete profile leaves entry screens for home and stays elsewhere', () {
       final ProfileState p = ProfileState.success(_complete);
       for (final String path in <String>['/', '/login', '/loading', '/profile-setup', '/?code=abc']) {
