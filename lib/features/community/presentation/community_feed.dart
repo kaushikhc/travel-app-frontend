@@ -177,6 +177,7 @@ class PostCard extends StatelessWidget {
               backgroundImage: photoUrl == null || photoUrl.isEmpty ? null : NetworkImage(photoUrl),
               child: photoUrl == null || photoUrl.isEmpty ? const Icon(Icons.person_outline) : null,
             ),
+            onTap: post.author.id == 0 ? null : () => context.push(AppRoutes.traveler(post.author.id)),
             title: Text(post.author.displayName.isEmpty ? 'Traveler' : post.author.displayName),
             subtitle: post.createdAt == null ? null : Text(ApiTime.formatDate(post.createdAt!)),
           ),

@@ -44,6 +44,9 @@ class _FakeRepo implements CommunityRepository {
 
   @override
   Future<PostModel> shareMemory(int memoryId) async => PostModel.fromJson(_post(1));
+
+  @override
+  dynamic noSuchMethod(Invocation i) => super.noSuchMethod(i);
 }
 
 void main() {

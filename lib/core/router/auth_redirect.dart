@@ -12,6 +12,7 @@ abstract final class AppRoutes {
   static const String newTrip = '/trips/new';
   static String editTrip(int id) => '/trips/$id/edit';
   static String tripItinerary(int id) => '/trips/$id/itinerary';
+  static String traveler(int id) => '/travelers/$id';
   static const String memories = '/memories';
   static const String journey = '/memories/journey';
   static const String capture = '/capture';
