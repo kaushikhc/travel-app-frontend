@@ -75,6 +75,6 @@ void main() {
     await tester.pumpWidget(_app(const HomeOverview()));
     await tester.pumpAndSettle();
     expect(find.textContaining('No trip in progress'), findsOneWidget);
-    expect(find.text('No upcoming trips yet.'), findsOneWidget);
+    expect(find.textContaining('No upcoming trips yet.'), findsOneWidget);
   });
 }

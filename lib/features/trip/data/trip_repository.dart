@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/api_client.dart';
 import '../../auth/presentation/auth_state.dart';
+import '../../profile/domain/api_date.dart';
 import '../domain/trip_detail_model.dart';
 import '../domain/trip_model.dart';
 
@@ -20,6 +21,27 @@ class TripRepository {
   /// GET /api/trips/{id}
   Future<TripModel> fetchTrip(int id) async =>
       TripModel.fromJson((await _apiClient.get('/trips/$id')).data as Map<String, dynamic>);
+
+  /// POST /api/trips. Status is not sent: the server derives it from the dates
+  /// (no dates = DRAFT). Dates go as `yyyy-MM-dd`.
+  Future<TripModel> createTrip({
+    required String name,
+    String? description,
+    DateTime? startDate,
+    DateTime? endDate,
+    int? coverMediaId,
+    List<String> tags = const <String>[],
+  }) async {
+    final Map<String, dynamic> body = <String, dynamic>{
+      'name': name.trim(),
+      'description': (description == null || description.trim().isEmpty) ? null : description.trim(),
+      'startDate': startDate == null ? null : ApiDate.format(startDate),
+      'endDate': endDate == null ? null : ApiDate.format(endDate),
+      'coverMediaId': coverMediaId,
+      'tags': tags,
+    };
+    return TripModel.fromJson((await _apiClient.post('/trips', data: body)).data as Map<String, dynamic>);
+  }
 
   Future<List<T>> _list<T>(String path, T Function(Map<String, dynamic>) parse) async =>
       ((await _apiClient.get(path)).data as List<dynamic>)

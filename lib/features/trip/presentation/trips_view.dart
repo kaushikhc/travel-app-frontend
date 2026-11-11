@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import '../../../core/router/auth_redirect.dart';
 import '../../auth/presentation/auth_state.dart';
 import '../../profile/presentation/profile_state.dart';
 import '../../../core/time/api_time.dart';
@@ -40,6 +41,11 @@ class TripsView extends ConsumerWidget {
     }
 
     return Scaffold(
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => context.push(AppRoutes.newTrip),
+        icon: const Icon(Icons.add),
+        label: const Text('New trip'),
+      ),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
@@ -171,7 +177,7 @@ class TripsView extends ConsumerWidget {
                       data: (HomeOverview home) {
                         final List<TripModel> trips = <TripModel>[...home.upcoming, ...home.drafts];
                         if (trips.isEmpty) {
-                          return const _Placeholder(height: 200, text: 'No upcoming trips yet.');
+                          return const _Placeholder(height: 200, text: 'No upcoming trips yet. Tap "New trip" to plan one.');
                         }
                         return ListView.separated(
                           scrollDirection: Axis.horizontal,
