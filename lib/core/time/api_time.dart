@@ -15,6 +15,10 @@ abstract final class ApiTime {
     return DateTime.tryParse(_hasOffset.hasMatch(text) ? text : '${text}Z')?.toUtc();
   }
 
+  /// A UTC `LocalDateTime` for request bodies, e.g. `2026-11-11T12:00:00.123` (no offset, which
+  /// the backend's `LocalDateTime` fields reject if present).
+  static String formatApi(DateTime value) => value.toUtc().toIso8601String().replaceAll('Z', '');
+
   /// Date in the device's time zone and locale, e.g. "11 Nov 2026".
   static String formatDate(DateTime utc, {String? locale}) =>
       DateFormat.yMMMd(locale).format(utc.toLocal());

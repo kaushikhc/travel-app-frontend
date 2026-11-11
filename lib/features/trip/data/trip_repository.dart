@@ -63,6 +63,9 @@ class TripRepository {
           (await _apiClient.put('/trips/$id', data: _body(name, description, startDate, endDate, coverMediaId, tags))).data
               as Map<String, dynamic>);
 
+  /// GET /api/trips: all the traveler's trips, newest first.
+  Future<List<TripModel>> fetchTrips() => _list('/trips', TripModel.fromJson);
+
   /// DELETE /api/trips/{id}: removes the trip and everything on it.
   Future<void> deleteTrip(int id) async {
     await _apiClient.delete('/trips/$id');
@@ -109,4 +112,10 @@ final travelStatsProvider = FutureProvider.autoDispose<TravelStats>((Ref ref) {
 final tripDetailProvider = FutureProvider.autoDispose.family<TripDetail, int>((Ref ref, int tripId) {
   ref.watch(authStateProvider.select((AuthState s) => s.isAuthenticated));
   return ref.watch(tripRepositoryProvider).fetchTripDetail(tripId);
+});
+
+/// All the traveler's trips (for pickers and names), newest first.
+final tripsProvider = FutureProvider.autoDispose<List<TripModel>>((Ref ref) {
+  ref.watch(authStateProvider.select((AuthState s) => s.isAuthenticated));
+  return ref.watch(tripRepositoryProvider).fetchTrips();
 });

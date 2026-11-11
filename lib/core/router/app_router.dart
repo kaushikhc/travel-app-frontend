@@ -12,6 +12,7 @@ import '../../features/trip/data/trip_repository.dart';
 import '../../features/trip/domain/trip_detail_model.dart';
 import '../../features/trip/domain/trip_model.dart';
 import '../../features/memories/presentation/memories_view.dart';
+import '../../features/memories/presentation/memory_detail_view.dart';
 import '../../features/capture/presentation/capture_view.dart';
 import '../../features/explore/presentation/explore_view.dart';
 import '../../features/profile/presentation/profile_view.dart';
@@ -108,10 +109,17 @@ final routerProvider = Provider<GoRouter>((ref) {
             ],
           ),
           GoRoute(
-            path: '/memories',
+            path: AppRoutes.memories,
             pageBuilder: (context, state) => const NoTransitionPage(
               child: MemoriesView(),
             ),
+            routes: <RouteBase>[
+              GoRoute(
+                path: ':id',
+                builder: (BuildContext context, GoRouterState state) =>
+                    MemoryDetailView(memoryId: int.tryParse(state.pathParameters['id'] ?? '') ?? 0),
+              ),
+            ],
           ),
           GoRoute(
             path: '/capture',
