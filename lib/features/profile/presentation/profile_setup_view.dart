@@ -28,7 +28,6 @@ class _ProfileSetupViewState extends ConsumerState<ProfileSetupView> with Single
   // Form fields
   late TextEditingController _displayNameCtrl;
   late TextEditingController _bioCtrl;
-  late TextEditingController _ageCtrl;
   DateTime? _birthday;
   String? _photoUrl;
   UploadedPhoto? _newPhoto;
@@ -46,7 +45,6 @@ class _ProfileSetupViewState extends ConsumerState<ProfileSetupView> with Single
     super.initState();
     _displayNameCtrl = TextEditingController();
     _bioCtrl = TextEditingController();
-    _ageCtrl = TextEditingController();
 
     _animCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 500));
     _fadeAnim = CurvedAnimation(parent: _animCtrl, curve: Curves.easeOut);
@@ -61,7 +59,6 @@ class _ProfileSetupViewState extends ConsumerState<ProfileSetupView> with Single
       if (profile != null) {
         _displayNameCtrl.text = profile.displayName;
         _bioCtrl.text = profile.bio ?? '';
-        _ageCtrl.text = profile.age?.toString() ?? '';
         _birthday = profile.birthday;
         _photoUrl = profile.photoUrl;
         _selectedCountryId = profile.homeCountryId;
@@ -74,7 +71,6 @@ class _ProfileSetupViewState extends ConsumerState<ProfileSetupView> with Single
   void dispose() {
     _displayNameCtrl.dispose();
     _bioCtrl.dispose();
-    _ageCtrl.dispose();
     _animCtrl.dispose();
     super.dispose();
   }
@@ -112,7 +108,6 @@ class _ProfileSetupViewState extends ConsumerState<ProfileSetupView> with Single
           bio: _bioCtrl.text.trim(),
           homeCountryId: _selectedCountryId!,
           photoMediaId: _newPhoto?.mediaId,
-          age: _birthday == null ? int.tryParse(_ageCtrl.text) : null,
           birthday: _birthday,
         );
     setState(() => _isSaving = false);
@@ -383,17 +378,11 @@ class _ProfileSetupViewState extends ConsumerState<ProfileSetupView> with Single
             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
           ),
         ),
-        if (_birthday == null) ...<Widget>[
-          const SizedBox(height: 24),
-          _buildLabel('Age (optional, if you\'d rather not give a birthday)'),
-          const SizedBox(height: 8),
-          _buildTextField(
-            controller: _ageCtrl,
-            hint: 'Your age',
-            icon: Icons.cake_outlined,
-            keyboardType: TextInputType.number,
-          ),
-        ],
+        const SizedBox(height: 6),
+        Text(
+          'Your age is worked out from your birthday. Only you can see your birthday.',
+          style: GoogleFonts.inter(color: Colors.white38, fontSize: 12),
+        ),
       ],
     );
   }
