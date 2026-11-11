@@ -105,3 +105,41 @@ class FeedPage {
         hasMore: json['hasMore'] as bool? ?? false,
       );
 }
+
+/// Another traveler as the community sees them (`TravelerCard`): public fields and counts only.
+@immutable
+class TravelerCard {
+  final int id;
+  final String displayName;
+  final String? photoUrl;
+  final String? bio;
+  final int followers;
+  final int followingCount;
+  final int posts;
+  final bool following;
+  final bool followsYou;
+
+  const TravelerCard({
+    required this.id,
+    required this.displayName,
+    this.photoUrl,
+    this.bio,
+    this.followers = 0,
+    this.followingCount = 0,
+    this.posts = 0,
+    this.following = false,
+    this.followsYou = false,
+  });
+
+  factory TravelerCard.fromJson(Map<String, dynamic> j) => TravelerCard(
+        id: (j['id'] as num).toInt(),
+        displayName: j['displayName'] as String? ?? '',
+        photoUrl: j['photoUrl'] as String?,
+        bio: j['bio'] as String?,
+        followers: (j['followers'] as num?)?.toInt() ?? 0,
+        followingCount: (j['followingCount'] as num?)?.toInt() ?? 0,
+        posts: (j['posts'] as num?)?.toInt() ?? 0,
+        following: j['following'] as bool? ?? false,
+        followsYou: j['followsYou'] as bool? ?? false,
+      );
+}

@@ -24,6 +24,21 @@ class CommunityRepository {
     return PostModel.fromJson(data as Map<String, dynamic>);
   }
 
+  /// GET /api/travelers/{id}
+  Future<TravelerCard> fetchTraveler(int id) async =>
+      TravelerCard.fromJson((await _apiClient.get('/travelers/$id')).data as Map<String, dynamic>);
+
+  /// GET /api/travelers/{id}/posts, 0-based [page].
+  Future<FeedPage> fetchTravelerPosts(int id, {int page = 0, int size = 20}) async => FeedPage.fromJson(
+      (await _apiClient.get('/travelers/$id/posts', queryParameters: <String, dynamic>{'page': page, 'size': size})).data
+          as Map<String, dynamic>);
+
+  /// PUT or DELETE /api/travelers/{id}/follow; returns the updated card (400 for yourself).
+  Future<TravelerCard> setFollow(int id, {required bool follow}) async {
+    final dynamic data = (follow ? await _apiClient.put('/travelers/$id/follow') : await _apiClient.delete('/travelers/$id/follow')).data;
+    return TravelerCard.fromJson(data as Map<String, dynamic>);
+  }
+
   /// POST /api/posts/share/{memoryId}: shares a memory (visibility defaults to the memory's; a
   /// PRIVATE memory gives 409).
   Future<PostModel> shareMemory(int memoryId) async =>
@@ -32,3 +47,9 @@ class CommunityRepository {
 
 final communityRepositoryProvider =
     Provider<CommunityRepository>((Ref ref) => CommunityRepository(ref.watch(apiClientProvider)));
+
+final travelerProvider = FutureProvider.autoDispose.family<TravelerCard, int>(
+    (Ref ref, int id) => ref.watch(communityRepositoryProvider).fetchTraveler(id));
+
+final travelerPostsProvider = FutureProvider.autoDispose.family<FeedPage, int>(
+    (Ref ref, int id) => ref.watch(communityRepositoryProvider).fetchTravelerPosts(id));
