@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace = "com.travelapp.travel_app_frontend"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = maxOf(flutter.compileSdkVersion, 36)
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
