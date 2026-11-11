@@ -6,6 +6,7 @@ import '../../features/auth/presentation/auth_state.dart';
 import '../../features/auth/presentation/login_view.dart';
 import '../../features/navigation/presentation/main_scaffold.dart';
 import '../../features/trip/presentation/trips_view.dart';
+import '../../features/trip/presentation/trip_detail_view.dart';
 import '../../features/memories/presentation/memories_view.dart';
 import '../../features/capture/presentation/capture_view.dart';
 import '../../features/explore/presentation/explore_view.dart';
@@ -81,6 +82,11 @@ final routerProvider = Provider<GoRouter>((ref) {
             pageBuilder: (context, state) => const NoTransitionPage(
               child: TripsView(),
             ),
+          ),
+          GoRoute(
+            path: '/trips/:id',
+            builder: (BuildContext context, GoRouterState state) =>
+                TripDetailView(tripId: int.tryParse(state.pathParameters['id'] ?? '') ?? 0),
           ),
           GoRoute(
             path: '/memories',
