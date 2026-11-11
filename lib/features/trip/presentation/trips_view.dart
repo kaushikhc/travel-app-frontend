@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../auth/presentation/auth_state.dart';
 import '../../profile/presentation/profile_state.dart';
@@ -133,8 +134,10 @@ class TripsView extends ConsumerWidget {
                     data: (HomeOverview home) => home.current == null
                         ? const _Placeholder(height: 120, text: 'No trip in progress. Your next trip shows here once it starts.')
                         : Consumer(
-                            builder: (BuildContext context, WidgetRef ref, Widget? _) => _buildCurrentTripCard(
-                                theme, home.current!, today, _coverUrl(ref, home.current!)),
+                            builder: (BuildContext context, WidgetRef ref, Widget? _) => GestureDetector(
+                              onTap: () => context.push('/trips/${home.current!.id}'),
+                              child: _buildCurrentTripCard(theme, home.current!, today, _coverUrl(ref, home.current!)),
+                            ),
                           ),
                   ),
                   const SizedBox(height: 32),
@@ -177,12 +180,15 @@ class TripsView extends ConsumerWidget {
                           itemBuilder: (BuildContext context, int i) {
                             final TripModel trip = trips[i];
                             return Consumer(
-                              builder: (BuildContext context, WidgetRef ref, Widget? _) => _buildUpcomingCard(
-                                context,
-                                trip.name,
-                                trip.startDate == null ? 'No dates yet' : ApiTime.formatMonthYear(trip.startDate!),
-                                _upcomingBadge(trip, today),
-                                _coverUrl(ref, trip),
+                              builder: (BuildContext context, WidgetRef ref, Widget? _) => GestureDetector(
+                                onTap: () => context.push('/trips/${trip.id}'),
+                                child: _buildUpcomingCard(
+                                  context,
+                                  trip.name,
+                                  trip.startDate == null ? 'No dates yet' : ApiTime.formatMonthYear(trip.startDate!),
+                                  _upcomingBadge(trip, today),
+                                  _coverUrl(ref, trip),
+                                ),
                               ),
                             );
                           },

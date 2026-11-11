@@ -1,0 +1,159 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
+import '../../../core/time/api_time.dart';
+import '../../media/data/media_repository.dart';
+import '../data/trip_repository.dart';
+import '../domain/trip_detail_model.dart';
+import '../domain/trip_model.dart';
+
+/// Read-only detail of one trip: header, then places, stays, transport and visits.
+class TripDetailView extends ConsumerWidget {
+  final int tripId;
+
+  const TripDetailView({super.key, required this.tripId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final AsyncValue<TripDetail> detail = ref.watch(tripDetailProvider(tripId));
+    return Scaffold(
+      appBar: AppBar(title: const Text('Trip')),
+      body: detail.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (Object e, StackTrace _) => Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              const Text('Could not load this trip.'),
+              const SizedBox(height: 12),
+              FilledButton(onPressed: () => ref.invalidate(tripDetailProvider(tripId)), child: const Text('Retry')),
+            ],
+          ),
+        ),
+        data: (TripDetail d) => _content(context, ref, d),
+      ),
+    );
+  }
+
+  Widget _content(BuildContext context, WidgetRef ref, TripDetail d) {
+    final ThemeData theme = Theme.of(context);
+    final TripModel trip = d.trip;
+    final int? coverId = trip.coverMediaId;
+    final String? coverUrl = coverId == null ? null : ref.watch(mediaUrlProvider(coverId)).value;
+    final DateTime now = DateTime.now();
+    final int? day = trip.dayOfTrip(now);
+    final int? total = trip.totalDays;
+    return ListView(
+      padding: const EdgeInsets.only(bottom: 32),
+      children: <Widget>[
+        if (coverId != null)
+          SizedBox(
+            height: 200,
+            child: coverUrl == null
+                ? ColoredBox(color: theme.colorScheme.primaryContainer)
+                : Image.network(coverUrl, fit: BoxFit.cover,
+                    errorBuilder: (BuildContext c, Object e, StackTrace? s) =>
+                        ColoredBox(color: theme.colorScheme.primaryContainer)),
+          ),
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text(trip.name, style: theme.textTheme.headlineSmall),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: <Widget>[
+                  Chip(label: Text(_statusLabel(trip.status))),
+                  if (_dateRange(trip) != null) Text(_dateRange(trip)!),
+                ],
+              ),
+              if (trip.status == TripStatus.active && day != null && total != null) ...<Widget>[
+                const SizedBox(height: 8),
+                Text('Day $day of $total'),
+                const SizedBox(height: 4),
+                LinearProgressIndicator(value: day / total),
+              ],
+              if (trip.description?.isNotEmpty == true) ...<Widget>[
+                const SizedBox(height: 12),
+                Text(trip.description!),
+              ],
+              if (trip.tags.isNotEmpty) ...<Widget>[
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: trip.tags.map((String t) => Chip(label: Text(t))).toList(growable: false),
+                ),
+              ],
+            ],
+          ),
+        ),
+        _section(theme, 'Places', 'No places planned yet.', d.places.map((TripPlaceItem p) {
+          final List<String> parts = <String>[
+            if (p.plannedDate != null) DateFormat.yMMMd().format(p.plannedDate!),
+            if (p.status != null) _title(p.status!),
+          ];
+          return _row(p.name, parts.join(' · '));
+        }).toList(growable: false)),
+        _section(theme, 'Stays', 'No stays added yet.', d.stays.map((StayItem s) {
+          return _row(s.name, _range(s.checkIn, s.checkOut));
+        }).toList(growable: false)),
+        _section(theme, 'Transport', 'No transport added yet.', d.transports.map((TransportItem t) {
+          final String route = <String>[t.from, t.to].where((String x) => x.isNotEmpty).join(' → ');
+          final String title = route.isNotEmpty ? route : (t.type == null ? 'Transport' : _title(t.type!));
+          return _row(title, <String>[
+            if (t.provider?.isNotEmpty == true) t.provider!,
+            _range(t.departure, t.arrival),
+          ].where((String x) => x.isNotEmpty).join(' · '));
+        }).toList(growable: false)),
+        _section(theme, 'Visits', 'No visits logged yet.', d.visits.map((VisitItem v) {
+          return _row(v.name, v.visitedAt == null ? '' : ApiTime.formatDateTime(v.visitedAt!));
+        }).toList(growable: false)),
+      ],
+    );
+  }
+
+  static Widget _section(ThemeData theme, String title, String empty, List<Widget> rows) => Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(title, style: theme.textTheme.titleMedium),
+            const SizedBox(height: 4),
+            if (rows.isEmpty) Text(empty, style: theme.textTheme.bodyMedium?.copyWith(color: theme.hintColor)) else ...rows,
+          ],
+        ),
+      );
+
+  static Widget _row(String title, String subtitle) => ListTile(
+        contentPadding: EdgeInsets.zero,
+        dense: true,
+        title: Text(title.isEmpty ? 'Untitled' : title),
+        subtitle: subtitle.isEmpty ? null : Text(subtitle),
+      );
+
+  static String _range(DateTime? a, DateTime? b) {
+    if (a == null && b == null) return '';
+    if (b == null) return ApiTime.formatDateTime(a!);
+    if (a == null) return ApiTime.formatDateTime(b);
+    return '${ApiTime.formatDateTime(a)} – ${ApiTime.formatDateTime(b)}';
+  }
+
+  static String? _dateRange(TripModel trip) {
+    if (trip.startDate == null) return null;
+    final String start = DateFormat.yMMMd().format(trip.startDate!);
+    return trip.endDate == null ? start : '$start – ${DateFormat.yMMMd().format(trip.endDate!)}';
+  }
+
+  static String _statusLabel(TripStatus s) => switch (s) {
+        TripStatus.draft => 'Draft',
+        TripStatus.upcoming => 'Upcoming',
+        TripStatus.active => 'Active',
+        TripStatus.archived => 'Completed',
+      };
+
+  static String _title(String s) => s.isEmpty ? s : s[0].toUpperCase() + s.substring(1).toLowerCase().replaceAll('_', ' ');
+}
