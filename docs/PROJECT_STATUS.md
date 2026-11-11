@@ -3,23 +3,29 @@
 Last updated: 2026-11-11
 
 ## Where things stand
-- Scaffold with feature folders: auth, profile, trip, memories, capture, explore, navigation (about 3.7k lines).
-- Wired to the API: email login and register, `/auth/check`, `/auth/logout`, `GET|PUT /profile/me`.
+- Scaffold with feature folders: auth, profile, trip, memories, capture, explore, navigation.
+- Wired to the API: email login and register, Google sign-in (native on Android via `POST /api/auth/google`, redirect plus `POST /api/auth/exchange` on web), `/auth/check`, `/auth/logout`, `GET|PUT /profile/me`.
 - Mock data only: trips, memories, capture, explore.
-- Tests: one smoke widget test.
+- Tests: 16 (router redirect rules, auth notifier, smoke test). `flutter analyze` clean; `flutter build web` OK. Android build not yet verified on a device.
+
+## Auth design (PR "Auth rework")
+- `AuthNotifier` (`features/auth/presentation/auth_state.dart`) owns the session: states checking, unauthenticated, loading, authenticated, error. At start it restores the token from `TokenStorage` (`core/storage`, flutter_secure_storage) and checks it with `/auth/check`: rejected tokens are dropped, an unreachable server keeps the session.
+- `ProfileNotifier` rebuilds on sign-in and sign-out and loads `/profile/me` itself.
+- The router's redirect is `authRedirect` (`core/router/auth_redirect.dart`), a pure function of auth state, profile state and URL. It never changes state, which is what broke routing before.
+- Web Google callback: `/#/?code=...` renders `GoogleCallbackView`, which exchanges the code; a race with session restore is handled (the newer sign-in wins).
+- Android Google: `NativeGoogleSignInGateway` (google_sign_in 7) needs `--dart-define=GOOGLE_SERVER_CLIENT_ID=<web client id>`, plus an Android OAuth client in Google Cloud for the package name and signing SHA-1.
 
 ## Known gaps against backend v1
-1. Google login reads `?token=&username=` from the redirect. Backend now sends `#/?code=...`, which must be exchanged with `POST /api/auth/exchange` within 60 seconds.
-2. The JWT is held in memory only, so a refresh or app restart signs the user out. The signed-in user is a placeholder (`id: '1'`).
-3. Router `redirect` has side effects (sets the token, starts profile loads), which caused past login routing loops.
-4. Profile has no `timeZone`; there is no UTC-to-local display helper.
-5. `TripModel` statuses (PLANNED/ONGOING/COMPLETED) differ from the backend (DRAFT/UPCOMING/ACTIVE/ARCHIVED).
-6. Country list is hardcoded with made-up ids.
-7. No v1 features yet: trips, memories, wishlist, collections, community, statistics, timeline.
+1. Done in the auth rework: code exchange, persisted token, real user, side-effect-free router.
+2. No global 401 handling yet: if a token expires mid-session, calls fail until the next start. Add a dio interceptor that signs out on 401.
+3. Profile has no `timeZone`; there is no UTC-to-local display helper.
+4. `TripModel` statuses (PLANNED/ONGOING/COMPLETED) differ from the backend (DRAFT/UPCOMING/ACTIVE/ARCHIVED).
+5. Country list is hardcoded with made-up ids.
+6. No v1 features yet: trips, memories, wishlist, collections, community, statistics, timeline.
 
 ## Plan (one PR each)
-1. Backend PR in travel-app: `POST /api/auth/google` that verifies a Google ID token and returns the app JWT (for native Android sign-in).
-2. Auth rework: explicit auth state machine, side-effect-free router with a dedicated web callback route, token in `flutter_secure_storage`, native Google sign-in on Android, code exchange on web, real user from `/profile/me`, redirect tests.
+1. Backend PR in travel-app: `POST /api/auth/google` (kaushikhc/travel-app#35).
+2. Auth rework (this PR): explicit auth state machine, side-effect-free router with a dedicated web callback route, token in `flutter_secure_storage`, native Google sign-in on Android, code exchange on web, real user from `/profile/me`, redirect tests.
 3. Profile `timeZone` (send device zone once), UTC-to-local helper, countries from the API.
 4. Real data, one screen at a time: Trips, Memories/Capture, Explore/Wishlist, Community.
 
@@ -30,6 +36,6 @@ Last updated: 2026-11-11
 ## How to run
 ```
 flutter pub get
-flutter run --dart-define=API_BASE_URL=http://<host>/api
+flutter run --dart-define=API_BASE_URL=http://<host>/api --dart-define=GOOGLE_SERVER_CLIENT_ID=<web client id>
 flutter analyze && flutter test
 ```

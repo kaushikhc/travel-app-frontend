@@ -22,10 +22,5 @@ void main() {
 
 class FakeAuthNotifier extends AuthNotifier {
   @override
-  AuthState build() {
-    return AuthState.unauthenticated();
-  }
-
-  @override
-  Future<void> checkStatus() async {}
+  AuthState build() => const AuthState.unauthenticated();
 }

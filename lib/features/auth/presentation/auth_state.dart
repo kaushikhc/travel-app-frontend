@@ -1,96 +1,88 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/storage/token_storage.dart';
 import '../data/auth_repository.dart';
+import '../data/google_sign_in_gateway.dart';
 import '../domain/user_model.dart';
 
-enum AuthStatus { initial, loading, authenticated, unauthenticated, error }
+/// checking: restoring a saved session at start-up. loading: a sign-in or sign-out is running.
+enum AuthStatus { checking, unauthenticated, loading, authenticated, error }
 
+@immutable
 class AuthState {
   final AuthStatus status;
   final UserModel? user;
   final String? errorMessage;
 
-  const AuthState({
-    required this.status,
-    this.user,
-    this.errorMessage,
-  });
+  const AuthState({required this.status, this.user, this.errorMessage});
 
-  factory AuthState.initial() => const AuthState(status: AuthStatus.unauthenticated);
-  factory AuthState.loading() => const AuthState(status: AuthStatus.loading);
-  factory AuthState.authenticated(UserModel user) => AuthState(status: AuthStatus.authenticated, user: user);
-  factory AuthState.unauthenticated() => const AuthState(status: AuthStatus.unauthenticated);
-  factory AuthState.error(String message) => AuthState(status: AuthStatus.error, errorMessage: message);
+  const AuthState.checking() : this(status: AuthStatus.checking);
+  const AuthState.unauthenticated() : this(status: AuthStatus.unauthenticated);
+  const AuthState.loading() : this(status: AuthStatus.loading);
+  const AuthState.authenticated(UserModel? user) : this(status: AuthStatus.authenticated, user: user);
+  const AuthState.error(String message) : this(status: AuthStatus.error, errorMessage: message);
+
+  bool get isAuthenticated => status == AuthStatus.authenticated;
 }
 
+/// Owns the session: the token in secure storage and on the API client. The router only reads this.
 class AuthNotifier extends Notifier<AuthState> {
-  late final AuthRepository _authRepository;
-  late final ApiClient _apiClient;
+  AuthRepository get _repository => ref.read(authRepositoryProvider);
+  ApiClient get _apiClient => ref.read(apiClientProvider);
+  TokenStorage get _storage => ref.read(tokenStorageProvider);
+  GoogleSignInGateway get _google => ref.read(googleSignInGatewayProvider);
 
   @override
   AuthState build() {
-    _authRepository = ref.watch(authRepositoryProvider);
-    _apiClient = ref.watch(apiClientProvider);
-    checkStatus();
-    return AuthState.unauthenticated();
+    Future<void>.microtask(restoreSession);
+    return const AuthState.checking();
   }
 
-  Future<void> checkStatus() async {
-    // If no JWT token is stored, user is strictly unauthenticated
-    if (!_apiClient.hasAuthToken) {
-      state = AuthState.unauthenticated();
+  /// Signs back in with a saved token. A token the server rejects is dropped; if the server
+  /// can't be reached the user stays signed in and requests retry later.
+  Future<void> restoreSession() async {
+    final String? token = await _storage.read();
+    // Another sign-in (e.g. the web Google callback) may have started meanwhile; it wins.
+    if (!ref.mounted || state.status != AuthStatus.checking) return;
+    if (token == null || token.isEmpty) {
+      state = const AuthState.unauthenticated();
       return;
     }
-
-    try {
-      final isLoggedIn = await _authRepository
-          .checkLoginStatus()
-          .timeout(const Duration(seconds: 2), onTimeout: () => false);
-
-      if (isLoggedIn) {
-        state = AuthState.authenticated(
-          const UserModel(id: '1', username: 'Traveler', email: 'user@travelapp.com'),
-        );
-      } else {
-        _apiClient.clearAuthToken();
-        state = AuthState.unauthenticated();
-      }
-    } catch (_) {
-      _apiClient.clearAuthToken();
-      state = AuthState.unauthenticated();
-    }
-  }
-
-  void handleOAuthCallback({
-    required String token,
-    required String username,
-    String? email,
-  }) {
     _apiClient.setAuthToken(token);
-    state = AuthState.authenticated(
-      UserModel(
-        id: '1',
-        username: username,
-        email: email ?? '$username@travelapp.com',
-      ),
-    );
+    final SessionCheck check = await _repository.checkSession();
+    if (!ref.mounted || state.status != AuthStatus.checking) return;
+    if (check == SessionCheck.invalid) {
+      await _clearSession();
+      state = const AuthState.unauthenticated();
+      return;
+    }
+    // Profile details (username, display name) come from /profile/me.
+    state = AuthState.authenticated(null);
   }
 
-  Future<bool> login(String username, String password) async {
-    state = AuthState.loading();
+  Future<bool> login(String username, String password) {
+    return _signIn(() => _repository.login(username, password));
+  }
+
+  /// Web: called by the callback route with the one-time code from the Google redirect.
+  Future<bool> exchangeGoogleCode(String code) {
+    return _signIn(() => _repository.exchangeGoogleCode(code));
+  }
+
+  /// Android: native Google sign-in. Returns false if it failed or the user cancelled.
+  Future<bool> signInWithGoogleNative() async {
+    state = const AuthState.loading();
     try {
-      final token = await _authRepository.login(username, password);
-      if (token != null && token.isNotEmpty) {
-        _apiClient.setAuthToken(token);
-        state = AuthState.authenticated(
-          UserModel(id: '1', username: username, email: '$username@travelapp.com'),
-        );
-        return true;
+      final String? idToken = await _google.obtainIdToken();
+      if (!ref.mounted) return false;
+      if (idToken == null) {
+        state = const AuthState.unauthenticated();
+        return false;
       }
-      state = AuthState.error('Invalid credentials.');
-      return false;
+      return await _signIn(() => _repository.signInWithGoogleIdToken(idToken));
     } catch (e) {
-      state = AuthState.error(e.toString().replaceAll('Exception: ', ''));
+      if (ref.mounted) state = AuthState.error(_message(e));
       return false;
     }
   }
@@ -101,28 +93,47 @@ class AuthNotifier extends Notifier<AuthState> {
     required String password,
     required String displayName,
   }) async {
-    state = AuthState.loading();
+    state = const AuthState.loading();
     try {
-      await _authRepository.register(
-        username: username,
-        email: email,
-        password: password,
-        displayName: displayName,
-      );
-      state = AuthState.unauthenticated();
+      await _repository.register(username: username, email: email, password: password, displayName: displayName);
+      if (ref.mounted) state = const AuthState.unauthenticated();
       return true;
     } catch (e) {
-      state = AuthState.error(e.toString().replaceAll('Exception: ', ''));
+      if (ref.mounted) state = AuthState.error(_message(e));
       return false;
     }
   }
 
   Future<void> logout() async {
-    state = AuthState.loading();
-    await _authRepository.logout();
-    _apiClient.clearAuthToken();
-    state = AuthState.unauthenticated();
+    state = const AuthState.loading();
+    await _repository.logout();
+    try {
+      await _google.signOut();
+    } catch (_) {}
+    await _clearSession();
+    if (ref.mounted) state = const AuthState.unauthenticated();
   }
+
+  Future<bool> _signIn(Future<AuthSession> Function() request) async {
+    state = const AuthState.loading();
+    try {
+      final AuthSession session = await request();
+      await _storage.write(session.token);
+      _apiClient.setAuthToken(session.token);
+      if (ref.mounted) state = AuthState.authenticated(UserModel(username: session.username));
+      return true;
+    } catch (e) {
+      if (ref.mounted) state = AuthState.error(_message(e));
+      return false;
+    }
+  }
+
+  Future<void> _clearSession() async {
+    _apiClient.clearAuthToken();
+    await _storage.clear();
+  }
+
+  static String _message(Object e) => e.toString().replaceAll('Exception: ', '');
 }
 
 final authStateProvider = NotifierProvider<AuthNotifier, AuthState>(AuthNotifier.new);
