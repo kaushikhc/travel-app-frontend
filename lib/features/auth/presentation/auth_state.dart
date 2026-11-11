@@ -35,6 +35,9 @@ class AuthNotifier extends Notifier<AuthState> {
 
   @override
   AuthState build() {
+    final ApiClient client = ref.read(apiClientProvider);
+    client.onUnauthorized = _onSessionRejected;
+    ref.onDispose(() => client.onUnauthorized = null);
     Future<void>.microtask(restoreSession);
     return const AuthState.checking();
   }
@@ -59,6 +62,13 @@ class AuthNotifier extends Notifier<AuthState> {
     }
     // Profile details (username, display name) come from /profile/me.
     state = AuthState.authenticated(null);
+  }
+
+  /// The server rejected our token mid-session (expired or revoked): drop it and go to sign-in.
+  Future<void> _onSessionRejected() async {
+    if (!ref.mounted || !state.isAuthenticated) return;
+    await _clearSession();
+    if (ref.mounted) state = const AuthState.unauthenticated();
   }
 
   Future<bool> login(String username, String password) {
@@ -125,6 +135,22 @@ class AuthNotifier extends Notifier<AuthState> {
     } catch (e) {
       if (ref.mounted) state = AuthState.error(_message(e));
       return false;
+    }
+  }
+
+  /// Picks a username (and optional password) after a first Google sign-in, or skips when both
+  /// are empty. Swaps in the new token without leaving the signed-in state. Returns an error
+  /// message, or null on success.
+  Future<String?> chooseUsername({String? username, String? password}) async {
+    try {
+      final AuthSession session =
+          await _repository.chooseUsername(username: username, password: password);
+      await _storage.write(session.token);
+      _apiClient.setAuthToken(session.token);
+      if (ref.mounted) state = AuthState.authenticated(UserModel(username: session.username));
+      return null;
+    } catch (e) {
+      return _message(e);
     }
   }
 

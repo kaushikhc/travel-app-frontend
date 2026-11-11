@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:travel_app_frontend/core/network/api_client.dart';
@@ -41,6 +42,12 @@ class FakeAuthRepository implements AuthRepository {
   Future<SessionCheck> checkSession() async => check;
   @override
   Future<void> logout() async {}
+  @override
+  Future<AuthSession> chooseUsername({String? username, String? password}) async {
+    if (username == 'taken') throw Exception('That username is taken. Please try another.');
+    final String name = (username == null || username.isEmpty) ? 'n@example.com' : username;
+    return AuthSession(token: 'jwt-$name', username: name);
+  }
 }
 
 class FakeGoogleGateway implements GoogleSignInGateway {
@@ -79,6 +86,25 @@ void main() {
     repository = FakeAuthRepository();
     google = FakeGoogleGateway();
     api = ApiClient(baseUrl: 'https://api.example/api');
+  });
+
+  test('a 401 on a signed-in call drops the session; auth calls and stale tokens do not', () async {
+    storage.token = 'saved';
+    final ProviderContainer c = makeContainer();
+    expect((await settled(c)).status, AuthStatus.authenticated);
+    DioException err(String path, int status, String? header) => DioException(
+          requestOptions: RequestOptions(path: path, headers: <String, dynamic>{'Authorization': ?header}),
+          response: Response<dynamic>(requestOptions: RequestOptions(path: path), statusCode: status),
+        );
+    expect(ApiClient.isSessionRejection(err('/auth/login', 401, 'Bearer saved'), 'saved'), isFalse);
+    expect(ApiClient.isSessionRejection(err('/trips', 401, 'Bearer old'), 'saved'), isFalse);
+    expect(ApiClient.isSessionRejection(err('/trips', 403, 'Bearer saved'), 'saved'), isFalse);
+    expect(ApiClient.isSessionRejection(err('/trips', 401, 'Bearer saved'), 'saved'), isTrue);
+    api.onUnauthorized!.call();
+    await pumpEventQueue();
+    expect(c.read(authStateProvider).status, AuthStatus.unauthenticated);
+    expect(api.hasAuthToken, isFalse);
+    expect(storage.token, isNull);
   });
 
   test('no saved token: signed out', () async {
@@ -143,5 +169,20 @@ void main() {
     expect(c.read(authStateProvider).status, AuthStatus.unauthenticated);
     expect(storage.token, isNull);
     expect(api.hasAuthToken, isFalse);
+  });
+
+  test('choosing a username swaps in the new token and stays signed in', () async {
+    final ProviderContainer c = makeContainer();
+    await settled(c);
+    await c.read(authStateProvider.notifier).signInWithGoogleNative();
+
+    expect(await c.read(authStateProvider.notifier).chooseUsername(username: 'taken'),
+        'That username is taken. Please try another.');
+    expect(storage.token, 'jwt-native');
+
+    expect(await c.read(authStateProvider.notifier).chooseUsername(username: 'nina_t', password: 'long-enough'), isNull);
+    expect(c.read(authStateProvider).status, AuthStatus.authenticated);
+    expect(c.read(authStateProvider).user?.username, 'nina_t');
+    expect(storage.token, 'jwt-nina_t');
   });
 }

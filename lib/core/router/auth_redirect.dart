@@ -7,7 +7,19 @@ abstract final class AppRoutes {
   static const String login = '/login';
   static const String loading = '/loading';
   static const String profileSetup = '/profile-setup';
+  static const String chooseUsername = '/choose-username';
   static const String home = '/home';
+  static const String newTrip = '/trips/new';
+  static String editTrip(int id) => '/trips/$id/edit';
+  static String tripItinerary(int id) => '/trips/$id/itinerary';
+  static String traveler(int id) => '/travelers/$id';
+  static const String memories = '/memories';
+  static const String journey = '/memories/journey';
+  static const String capture = '/capture';
+  static String memoryDetail(int id) => '/memories/$id';
+  static String editMemory(int id) => '/memories/$id/edit';
+  static const String explore = '/explore';
+  static String placeDetail(int id) => '/explore/places/$id';
 }
 
 /// Where the router should send the user, or null to stay. A pure function of the current state
@@ -41,8 +53,13 @@ String? authRedirect({required AuthState auth, required ProfileState profile, re
     // Profile failed to load: let the user in; screens can retry.
     return entryPaths.contains(path) || path == AppRoutes.profileSetup ? AppRoutes.home : null;
   }
+  if (profile.needsUsername) {
+    return path == AppRoutes.chooseUsername ? null : AppRoutes.chooseUsername;
+  }
   if (profile.needsSetup) {
     return path == AppRoutes.profileSetup ? null : AppRoutes.profileSetup;
   }
-  return entryPaths.contains(path) || path == AppRoutes.profileSetup ? AppRoutes.home : null;
+  return entryPaths.contains(path) || path == AppRoutes.profileSetup || path == AppRoutes.chooseUsername
+      ? AppRoutes.home
+      : null;
 }

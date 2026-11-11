@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/time/api_time.dart';
 import '../../auth/presentation/auth_state.dart';
 import '../data/profile_repository.dart';
 import '../domain/profile_model.dart';
@@ -8,11 +9,7 @@ class ProfileState {
   final ProfileModel? profile;
   final String? errorMessage;
 
-  const ProfileState({
-    required this.isLoading,
-    this.profile,
-    this.errorMessage,
-  });
+  const ProfileState({required this.isLoading, this.profile, this.errorMessage});
 
   factory ProfileState.idle() => const ProfileState(isLoading: false);
   factory ProfileState.initial() => const ProfileState(isLoading: true);
@@ -22,6 +19,9 @@ class ProfileState {
       ProfileState(isLoading: false, errorMessage: message, profile: current);
 
   /// True when profile has been loaded and mandatory fields are incomplete.
+  /// True after a first Google sign-in until a username is picked or the step is skipped.
+  bool get needsUsername => !isLoading && profile != null && !profile!.usernameChosen;
+
   bool get needsSetup => !isLoading && profile != null && !profile!.isProfileComplete;
 }
 
@@ -43,18 +43,29 @@ class ProfileNotifier extends Notifier<ProfileState> {
     try {
       final profile = await _repository.fetchMyProfile();
       if (ref.mounted) state = ProfileState.success(profile);
+      await _syncTimeZone(profile);
     } catch (e) {
       if (ref.mounted) state = ProfileState.error(e.toString().replaceAll('Exception: ', ''), state.profile);
     }
+  }
+
+  /// Sends the device time zone when it differs from the profile's. Best effort: a failure
+  /// leaves the profile as it is and is retried on the next load.
+  Future<void> _syncTimeZone(ProfileModel profile) async {
+    final String? device = await ref.read(deviceTimeZoneProvider).current();
+    if (device == null || device.isEmpty || device == profile.timeZone || !ref.mounted) return;
+    try {
+      final ProfileModel updated = await _repository.updateTimeZone(device);
+      if (ref.mounted && !state.isLoading) state = ProfileState.success(updated);
+    } catch (_) {}
   }
 
   Future<bool> updateProfile({
     required String displayName,
     String? bio,
     int? homeCountryId,
-    String? photoUrl,
-    int? age,
-    String? birthday,
+    int? photoMediaId,
+    DateTime? birthday,
   }) async {
     final currentProfile = state.profile;
     state = ProfileState.loading(currentProfile);
@@ -63,8 +74,7 @@ class ProfileNotifier extends Notifier<ProfileState> {
         displayName: displayName,
         bio: bio,
         homeCountryId: homeCountryId,
-        photoUrl: photoUrl,
-        age: age,
+        photoMediaId: photoMediaId,
         birthday: birthday,
       );
       if (ref.mounted) state = ProfileState.success(updated);

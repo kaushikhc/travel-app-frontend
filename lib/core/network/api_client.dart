@@ -9,12 +9,16 @@ class ApiClient {
   late final Dio _dio;
   String? _authToken;
 
+  /// Called once per rejected session: a 401 on a call made with the current token (not on the
+  /// `/auth/...` calls, where 401 can simply mean wrong credentials). Set by the auth notifier.
+  void Function()? onUnauthorized;
+
   static const String defaultApiUrl = String.fromEnvironment(
     'API_BASE_URL',
     defaultValue: 'https://playtime-duchess-unweave.ngrok-free.dev/api',
   );
 
-  ApiClient({String? baseUrl}) {
+  ApiClient({String? baseUrl, HttpClientAdapter? adapter}) {
     String targetUrl = baseUrl ?? defaultApiUrl;
     
     // Dynamically adjust API base URL based on the browser's current location (Uri.base)
@@ -34,13 +38,11 @@ class ApiClient {
         baseUrl: targetUrl,
         connectTimeout: const Duration(seconds: 15),
         receiveTimeout: const Duration(seconds: 15),
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'ngrok-skip-browser-warning': 'true',
-        },
+        headers: headersFor(targetUrl),
       ),
     );
+
+    if (adapter != null) _dio.httpClientAdapter = adapter;
 
     _dio.interceptors.add(
       InterceptorsWrapper(
@@ -52,13 +54,36 @@ class ApiClient {
           return handler.next(options);
         },
         onError: (DioException error, handler) {
+          if (isSessionRejection(error, _authToken)) onUnauthorized?.call();
           return handler.next(error);
         },
       ),
     );
   }
 
+  /// True when [error] is a 401 for a request that carried [currentToken] (so a late answer to
+  /// an old request cannot sign out a newer session) and is not an `/auth/` call.
+  static bool isSessionRejection(DioException error, String? currentToken) {
+    if (error.response?.statusCode != 401 || currentToken == null || currentToken.isEmpty) return false;
+    if (error.requestOptions.path.startsWith('/auth/')) return false;
+    return error.requestOptions.headers['Authorization'] == 'Bearer $currentToken';
+  }
+
   String get baseUrl => _dio.options.baseUrl;
+
+  /// Default headers. The ngrok header is sent only to ngrok hosts: the backend's CORS
+  /// allows just Authorization, Content-Type and Accept, so any other header makes the
+  /// browser's preflight fail and every call from localhost:8080 look like a network error.
+  static Map<String, String> headersFor(String baseUrl) {
+    final Map<String, String> headers = <String, String>{
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    };
+    if (Uri.tryParse(baseUrl)?.host.contains('ngrok') ?? false) {
+      headers['ngrok-skip-browser-warning'] = 'true';
+    }
+    return headers;
+  }
 
   bool get hasAuthToken => _authToken != null && _authToken!.isNotEmpty;
 
@@ -80,6 +105,10 @@ class ApiClient {
 
   Future<Response> put(String path, {dynamic data}) async {
     return await _dio.put(path, data: data);
+  }
+
+  Future<Response> patch(String path, {dynamic data}) async {
+    return await _dio.patch(path, data: data);
   }
 
   Future<Response> delete(String path) async {

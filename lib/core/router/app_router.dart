@@ -1,13 +1,26 @@
+import '../../features/auth/presentation/choose_username_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../features/auth/presentation/auth_state.dart';
 import '../../features/auth/presentation/login_view.dart';
 import '../../features/navigation/presentation/main_scaffold.dart';
+import '../../features/journey/presentation/journey_view.dart';
+import '../../features/community/presentation/traveler_view.dart';
 import '../../features/trip/presentation/trips_view.dart';
+import '../../features/trip/presentation/trip_detail_view.dart';
+import '../../features/trip/presentation/trip_itinerary_view.dart';
+import '../../features/trip/presentation/create_trip_view.dart';
+import '../../features/trip/data/trip_repository.dart';
+import '../../features/trip/domain/trip_detail_model.dart';
+import '../../features/trip/domain/trip_model.dart';
+import '../../features/memories/data/memory_repository.dart';
+import '../../features/memories/domain/memory_model.dart';
 import '../../features/memories/presentation/memories_view.dart';
+import '../../features/memories/presentation/memory_detail_view.dart';
 import '../../features/capture/presentation/capture_view.dart';
 import '../../features/explore/presentation/explore_view.dart';
+import '../../features/explore/presentation/place_detail_view.dart';
 import '../../features/profile/presentation/profile_view.dart';
 import '../../features/profile/presentation/profile_setup_view.dart';
 import '../../features/profile/presentation/profile_state.dart';
@@ -60,6 +73,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const _LoadingScreen(),
       ),
       GoRoute(
+        path: AppRoutes.chooseUsername,
+        builder: (context, state) => const ChooseUsernameView(),
+      ),
+      GoRoute(
         path: '/profile-setup',
         builder: (context, state) => const ProfileSetupView(),
       ),
@@ -78,10 +95,68 @@ final routerProvider = Provider<GoRouter>((ref) {
             ),
           ),
           GoRoute(
-            path: '/memories',
+            path: AppRoutes.newTrip,
+            builder: (BuildContext context, GoRouterState state) => const CreateTripView(),
+          ),
+          GoRoute(
+            path: '/trips/:id',
+            builder: (BuildContext context, GoRouterState state) =>
+                TripDetailView(tripId: int.tryParse(state.pathParameters['id'] ?? '') ?? 0),
+            routes: <RouteBase>[
+              GoRoute(
+                path: 'itinerary',
+                builder: (BuildContext context, GoRouterState state) =>
+                    TripItineraryView(tripId: int.tryParse(state.pathParameters['id'] ?? '') ?? 0),
+              ),
+              GoRoute(
+                path: 'edit',
+                builder: (BuildContext context, GoRouterState state) {
+                  final Object? extra = state.extra;
+                  return extra is TripModel
+                      ? CreateTripView(trip: extra)
+                      : _LoadedTripEdit(tripId: int.tryParse(state.pathParameters['id'] ?? '') ?? 0);
+                },
+              ),
+            ],
+          ),
+          GoRoute(
+            path: '/travelers/:id',
+            builder: (BuildContext context, GoRouterState state) =>
+                TravelerView(travelerId: int.tryParse(state.pathParameters['id'] ?? '') ?? 0),
+          ),
+          GoRoute(
+            path: AppRoutes.memories,
             pageBuilder: (context, state) => const NoTransitionPage(
               child: MemoriesView(),
             ),
+            routes: <RouteBase>[
+              GoRoute(path: 'journey', builder: (BuildContext context, GoRouterState state) => const JourneyView()),
+              GoRoute(
+                path: ':id',
+                builder: (BuildContext context, GoRouterState state) =>
+                    MemoryDetailView(
+                      memoryId:
+                          int.tryParse(state.pathParameters['id'] ?? '') ?? 0,
+                    ),
+                routes: <RouteBase>[
+                  GoRoute(
+                    path: 'edit',
+                    builder: (BuildContext context, GoRouterState state) {
+                      final Object? extra = state.extra;
+                      return extra is MemoryModel
+                          ? CaptureView(memory: extra)
+                          : _LoadedMemoryEdit(
+                              memoryId:
+                                  int.tryParse(
+                                    state.pathParameters['id'] ?? '',
+                                  ) ??
+                                  0,
+                            );
+                    },
+                  ),
+                ],
+              ),
+            ],
           ),
           GoRoute(
             path: '/capture',
@@ -90,10 +165,17 @@ final routerProvider = Provider<GoRouter>((ref) {
             ),
           ),
           GoRoute(
-            path: '/explore',
+            path: AppRoutes.explore,
             pageBuilder: (context, state) => const NoTransitionPage(
               child: ExploreView(),
             ),
+            routes: <RouteBase>[
+              GoRoute(
+                path: 'places/:id',
+                builder: (BuildContext context, GoRouterState state) =>
+                    PlaceDetailView(placeId: int.tryParse(state.pathParameters['id'] ?? '') ?? 0),
+              ),
+            ],
           ),
           GoRoute(
             path: '/profile',
@@ -127,6 +209,49 @@ class _LoadingScreen extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Fallback when `/trips/:id/edit` is opened without the trip (e.g. a web reload): loads it first.
+class _LoadedTripEdit extends ConsumerWidget {
+  final int tripId;
+
+  const _LoadedTripEdit({required this.tripId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final AsyncValue<TripDetail> detail = ref.watch(tripDetailProvider(tripId));
+    return detail.when(
+      data: (TripDetail d) => CreateTripView(trip: d.trip),
+      loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),
+      error: (Object e, StackTrace _) => Scaffold(
+        appBar: AppBar(),
+        body: const Center(child: Text('Could not load this trip.')),
+      ),
+    );
+  }
+}
+
+/// Fallback when `/memories/:id/edit` is opened without the memory (e.g. a web reload): loads it first.
+class _LoadedMemoryEdit extends ConsumerWidget {
+  final int memoryId;
+
+  const _LoadedMemoryEdit({required this.memoryId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final AsyncValue<MemoryModel> memory = ref.watch(
+      memoryDetailProvider(memoryId),
+    );
+    return memory.when(
+      data: (MemoryModel m) => CaptureView(memory: m),
+      loading: () =>
+          const Scaffold(body: Center(child: CircularProgressIndicator())),
+      error: (Object e, StackTrace _) => Scaffold(
+        appBar: AppBar(),
+        body: const Center(child: Text('Could not load this memory.')),
       ),
     );
   }
