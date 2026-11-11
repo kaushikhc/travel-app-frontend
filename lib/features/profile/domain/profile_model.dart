@@ -1,3 +1,5 @@
+import '../../../core/time/api_time.dart';
+
 class ProfileModel {
   final int travelerId;
   final String username;
@@ -8,7 +10,10 @@ class ProfileModel {
   final String? photoUrl;
   final int? age;
   final String? birthday;
+  /// UTC.
   final DateTime? createdAt;
+  /// IANA zone id stored on the server (default `UTC`).
+  final String timeZone;
 
   const ProfileModel({
     required this.travelerId,
@@ -21,6 +26,7 @@ class ProfileModel {
     this.age,
     this.birthday,
     this.createdAt,
+    this.timeZone = 'UTC',
   });
 
   /// Returns true when all mandatory on-boarding fields are filled.
@@ -40,7 +46,8 @@ class ProfileModel {
       photoUrl: json['photoUrl'] as String?,
       age: json['age'] as int?,
       birthday: json['birthday'] as String?,
-      createdAt: json['createdAt'] != null ? DateTime.tryParse(json['createdAt'] as String) : null,
+      createdAt: ApiTime.parseUtc(json['createdAt'] as String?),
+      timeZone: json['timeZone'] as String? ?? 'UTC',
     );
   }
 
@@ -56,6 +63,7 @@ class ProfileModel {
       'age': age,
       'birthday': birthday,
       'createdAt': createdAt?.toIso8601String(),
+      'timeZone': timeZone,
     };
   }
 
@@ -70,6 +78,7 @@ class ProfileModel {
     int? age,
     String? birthday,
     DateTime? createdAt,
+    String? timeZone,
   }) {
     return ProfileModel(
       travelerId: travelerId ?? this.travelerId,
@@ -82,6 +91,7 @@ class ProfileModel {
       age: age ?? this.age,
       birthday: birthday ?? this.birthday,
       createdAt: createdAt ?? this.createdAt,
+      timeZone: timeZone ?? this.timeZone,
     );
   }
 }

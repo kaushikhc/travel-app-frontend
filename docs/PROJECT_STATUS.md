@@ -1,12 +1,13 @@
 # Project status: Flutter client
 
-Last updated: 2026-11-11
+Last updated: 2026-11-11 (time zone, countries)
 
 ## Where things stand
 - Scaffold with feature folders: auth, profile, trip, memories, capture, explore, navigation.
+- Profile sends the device IANA time zone (`flutter_timezone`) whenever it differs from the server's; countries come from `GET /api/places/countries` (`CountryPicker`, searchable).
 - Wired to the API: email login and register, Google sign-in (native on Android via `POST /api/auth/google`, redirect plus `POST /api/auth/exchange` on web), `/auth/check`, `/auth/logout`, `GET|PUT /profile/me`.
 - Mock data only: trips, memories, capture, explore.
-- Tests: 16 (router redirect rules, auth notifier, smoke test). `flutter analyze` clean; `flutter build web` OK. Android build not yet verified on a device.
+- Tests: 24 (router redirect rules, auth notifier, time parsing, countries, time zone sync, smoke test). `flutter analyze` clean; `flutter build web` OK. Android build not yet verified on a device.
 
 ## Auth design (PR "Auth rework")
 - `AuthNotifier` (`features/auth/presentation/auth_state.dart`) owns the session: states checking, unauthenticated, loading, authenticated, error. At start it restores the token from `TokenStorage` (`core/storage`, flutter_secure_storage) and checks it with `/auth/check`: rejected tokens are dropped, an unreachable server keeps the session.
@@ -18,16 +19,17 @@ Last updated: 2026-11-11
 ## Known gaps against backend v1
 1. Done in the auth rework: code exchange, persisted token, real user, side-effect-free router.
 2. No global 401 handling yet: if a token expires mid-session, calls fail until the next start. Add a dio interceptor that signs out on 401.
-3. Profile has no `timeZone`; there is no UTC-to-local display helper.
-4. `TripModel` statuses (PLANNED/ONGOING/COMPLETED) differ from the backend (DRAFT/UPCOMING/ACTIVE/ARCHIVED).
-5. Country list is hardcoded with made-up ids.
-6. No v1 features yet: trips, memories, wishlist, collections, community, statistics, timeline.
+3. `TripModel` statuses (PLANNED/ONGOING/COMPLETED) differ from the backend (DRAFT/UPCOMING/ACTIVE/ARCHIVED).
+4. No v1 features yet: trips, memories, wishlist, collections, community, statistics, timeline.
 
 ## Plan (one PR each)
-1. Backend PR in travel-app: `POST /api/auth/google` (kaushikhc/travel-app#35).
-2. Auth rework (this PR): explicit auth state machine, side-effect-free router with a dedicated web callback route, token in `flutter_secure_storage`, native Google sign-in on Android, code exchange on web, real user from `/profile/me`, redirect tests.
-3. Profile `timeZone` (send device zone once), UTC-to-local helper, countries from the API.
+1. Done: backend `POST /api/auth/google` (kaushikhc/travel-app#35, merged).
+2. Done: auth rework (#1): explicit auth state machine, side-effect-free router with a dedicated web callback route, token in `flutter_secure_storage`, native Google sign-in on Android, code exchange on web, real user from `/profile/me`, redirect tests.
+3. Done: profile `timeZone` sync, `ApiTime` UTC helpers, countries from the API.
 4. Real data, one screen at a time: Trips, Memories/Capture, Explore/Wishlist, Community.
+
+## Branching
+Until the MVP is ready, PRs go to `main`. After that, all development goes to `develop` only (Sam, 2026-11-11).
 
 ## Open items for Sam
 - Android OAuth client in Google Cloud (package `com.travelapp.travel_app_frontend` + debug SHA-1).

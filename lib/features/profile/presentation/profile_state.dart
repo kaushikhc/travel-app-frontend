@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/time/api_time.dart';
 import '../../auth/presentation/auth_state.dart';
 import '../data/profile_repository.dart';
 import '../domain/profile_model.dart';
@@ -43,9 +44,21 @@ class ProfileNotifier extends Notifier<ProfileState> {
     try {
       final profile = await _repository.fetchMyProfile();
       if (ref.mounted) state = ProfileState.success(profile);
+      await _syncTimeZone(profile);
     } catch (e) {
       if (ref.mounted) state = ProfileState.error(e.toString().replaceAll('Exception: ', ''), state.profile);
     }
+  }
+
+  /// Sends the device time zone when it differs from the profile's. Best effort: a failure
+  /// leaves the profile as it is and is retried on the next load.
+  Future<void> _syncTimeZone(ProfileModel profile) async {
+    final String? device = await ref.read(deviceTimeZoneProvider).current();
+    if (device == null || device.isEmpty || device == profile.timeZone || !ref.mounted) return;
+    try {
+      final ProfileModel updated = await _repository.updateTimeZone(device);
+      if (ref.mounted && !state.isLoading) state = ProfileState.success(updated);
+    } catch (_) {}
   }
 
   Future<bool> updateProfile({
