@@ -72,6 +72,48 @@ class MemoryRepository {
     };
   }
 
+  /// PATCH /api/memories/{id}. See [updateBody] for what is sent.
+  Future<MemoryModel> updateMemory(
+    int id, {
+    required String title,
+    required String note,
+    required MemoryVisibility visibility,
+    required List<String> tags,
+    required List<int> mediaIds,
+  }) async {
+    return MemoryModel.fromJson(
+      (await _apiClient.patch(
+            '/memories/$id',
+            data: updateBody(
+              title: title,
+              note: note,
+              visibility: visibility,
+              tags: tags,
+              mediaIds: mediaIds,
+            ),
+          )).data
+          as Map<String, dynamic>,
+    );
+  }
+
+  /// The PATCH body. The backend leaves out-of-body fields unchanged, so `capturedAt`, `visitId`
+  /// and `placeId` are never sent here (a JSON null would clear visit and place). Title and note
+  /// are sent trimmed, and an empty string clears them. `tags` and `mediaIds` replace the whole
+  /// set or list; media left out of `mediaIds` is deleted by the server if nothing else uses it.
+  static Map<String, dynamic> updateBody({
+    required String title,
+    required String note,
+    required MemoryVisibility visibility,
+    required List<String> tags,
+    required List<int> mediaIds,
+  }) => <String, dynamic>{
+    'title': title.trim(),
+    'note': note.trim(),
+    'visibility': visibility.apiName,
+    'tags': tags,
+    'mediaIds': mediaIds,
+  };
+
   /// DELETE /api/memories/{id} (204).
   Future<void> deleteMemory(int id) async {
     await _apiClient.delete('/memories/$id');
