@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/time/api_time.dart';
 import '../../auth/presentation/auth_state.dart';
 import '../../profile/domain/api_date.dart';
 import '../domain/trip_detail_model.dart';
@@ -69,6 +70,67 @@ class TripRepository {
   /// DELETE /api/trips/{id}: removes the trip and everything on it.
   Future<void> deleteTrip(int id) async {
     await _apiClient.delete('/trips/$id');
+  }
+
+  /// POST /api/trips/{tripId}/places: plans an existing place, optionally on a date. 409 if already planned.
+  Future<void> addTripPlace(int tripId, {required int placeId, DateTime? plannedDate, String? notes}) async {
+    await _apiClient.post('/trips/$tripId/places', data: tripPlaceBody(placeId: placeId, plannedDate: plannedDate, notes: notes));
+  }
+
+  static Map<String, dynamic> tripPlaceBody({required int placeId, DateTime? plannedDate, String? notes}) => <String, dynamic>{
+        'placeId': placeId,
+        if (plannedDate != null) 'plannedDate': ApiDate.format(plannedDate),
+        if (notes != null && notes.trim().isNotEmpty) 'notes': notes.trim(),
+      };
+
+  /// PUT /api/trips/{tripId}/places/{id}: replaces date and notes (null clears them); [status] is
+  /// PLANNED or SKIPPED, or null to keep it.
+  Future<void> updateTripPlace(int tripId, int id, {DateTime? plannedDate, String? notes, String? status}) async {
+    await _apiClient.put('/trips/$tripId/places/$id', data: tripPlaceUpdateBody(plannedDate: plannedDate, notes: notes, status: status));
+  }
+
+  static Map<String, dynamic> tripPlaceUpdateBody({DateTime? plannedDate, String? notes, String? status}) => <String, dynamic>{
+        'plannedDate': plannedDate == null ? null : ApiDate.format(plannedDate),
+        'notes': notes == null || notes.trim().isEmpty ? null : notes.trim(),
+        'status': ?status,
+      };
+
+  /// DELETE /api/trips/{tripId}/places/{id}
+  Future<void> deleteTripPlace(int tripId, int id) async {
+    await _apiClient.delete('/trips/$tripId/places/$id');
+  }
+
+  /// POST (new) or PUT (when [id] is set) on /api/trips/{tripId}/visits. Say where with exactly one of
+  /// [tripPlaceId] or [placeId]. Times are sent as UTC. The backend replaces the whole visit on PUT.
+  Future<void> saveVisit(
+    int tripId, {
+    int? id,
+    int? tripPlaceId,
+    int? placeId,
+    required DateTime visitedAt,
+    DateTime? leftAt,
+    String? notes,
+  }) async {
+    final Map<String, dynamic> body = visitBody(tripPlaceId: tripPlaceId, placeId: placeId, visitedAt: visitedAt, leftAt: leftAt, notes: notes);
+    if (id == null) {
+      await _apiClient.post('/trips/$tripId/visits', data: body);
+    } else {
+      await _apiClient.put('/trips/$tripId/visits/$id', data: body);
+    }
+  }
+
+  static Map<String, dynamic> visitBody({int? tripPlaceId, int? placeId, required DateTime visitedAt, DateTime? leftAt, String? notes}) =>
+      <String, dynamic>{
+        'tripPlaceId': ?tripPlaceId,
+        if (tripPlaceId == null) 'placeId': ?placeId,
+        'visitedAt': ApiTime.formatApi(visitedAt),
+        'leftAt': leftAt == null ? null : ApiTime.formatApi(leftAt),
+        'notes': notes == null || notes.trim().isEmpty ? null : notes.trim(),
+      };
+
+  /// DELETE /api/trips/{tripId}/visits/{id}
+  Future<void> deleteVisit(int tripId, int id) async {
+    await _apiClient.delete('/trips/$tripId/visits/$id');
   }
 
   Future<List<T>> _list<T>(String path, T Function(Map<String, dynamic>) parse) async =>
