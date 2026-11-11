@@ -23,7 +23,7 @@ in its `docs/` folder too.
 
 ## Working rules
 - Write code only when the product owner (Sam) has authorized the change.
-- Update `docs/PROJECT_STATUS.md` in every change.
+- Keep `docs/PROJECT_STATUS.md` out of feature PRs (Sam, 2026-11-11: it caused merge conflicts). Put status updates in their own small PR, cut fresh from the base branch, and check the doc against what is actually merged first.
 - Cut each PR fresh from `main`; never stack PRs on other PR branches.
 - **Once the MVP is ready (Sam's rule, 2026-11-11), all development goes to a `develop` branch only**: cut PRs from `develop` and target `develop`, like the backend. `main` then only receives merges from `develop`.
 - Before pushing: `flutter analyze` and `flutter test` pass.
