@@ -9,12 +9,16 @@ class ApiClient {
   late final Dio _dio;
   String? _authToken;
 
+  /// Called once per rejected session: a 401 on a call made with the current token (not on the
+  /// `/auth/...` calls, where 401 can simply mean wrong credentials). Set by the auth notifier.
+  void Function()? onUnauthorized;
+
   static const String defaultApiUrl = String.fromEnvironment(
     'API_BASE_URL',
     defaultValue: 'https://playtime-duchess-unweave.ngrok-free.dev/api',
   );
 
-  ApiClient({String? baseUrl}) {
+  ApiClient({String? baseUrl, HttpClientAdapter? adapter}) {
     String targetUrl = baseUrl ?? defaultApiUrl;
     
     // Dynamically adjust API base URL based on the browser's current location (Uri.base)
@@ -38,6 +42,8 @@ class ApiClient {
       ),
     );
 
+    if (adapter != null) _dio.httpClientAdapter = adapter;
+
     _dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) {
@@ -48,10 +54,19 @@ class ApiClient {
           return handler.next(options);
         },
         onError: (DioException error, handler) {
+          if (isSessionRejection(error, _authToken)) onUnauthorized?.call();
           return handler.next(error);
         },
       ),
     );
+  }
+
+  /// True when [error] is a 401 for a request that carried [currentToken] (so a late answer to
+  /// an old request cannot sign out a newer session) and is not an `/auth/` call.
+  static bool isSessionRejection(DioException error, String? currentToken) {
+    if (error.response?.statusCode != 401 || currentToken == null || currentToken.isEmpty) return false;
+    if (error.requestOptions.path.startsWith('/auth/')) return false;
+    return error.requestOptions.headers['Authorization'] == 'Bearer $currentToken';
   }
 
   String get baseUrl => _dio.options.baseUrl;

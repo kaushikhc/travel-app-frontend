@@ -1,6 +1,6 @@
 # Project status: Flutter client
 
-Last updated: 2026-11-11 (memories: edit a saved memory, camera in Capture; explore and wishlist)
+Last updated: 2026-11-11 (401 sign-out; memories: edit a saved memory, camera in Capture; explore and wishlist)
 
 ## Where things stand
 - Scaffold with feature folders: auth, profile, trip, memories, capture, explore, navigation.
@@ -20,7 +20,7 @@ Last updated: 2026-11-11 (memories: edit a saved memory, camera in Capture; expl
 - Edit memory: `CaptureView(memory: ...)` is the capture form in edit mode (title "Edit memory", button "Save"), prefilled with title, note, tags and visibility; existing photos show with a remove button, new ones come from the gallery or camera. Route `/memories/:id/edit` (`AppRoutes.editMemory`, memory passed as `extra`, else loaded by `memoryDetailProvider`); Edit icon on memory detail. `MemoryRepository.updateMemory` sends `PATCH /api/memories/{id}` with title, note (trimmed; `""` clears), visibility, tags and `mediaIds` (kept existing ids plus newly uploaded ones, in that order). The server replaces tags and mediaIds wholesale and deletes removed media that nothing else uses; `capturedAt`, `visitId`, `placeId` are never sent (omitted = unchanged; a null would clear visit and place). The trip is shown but locked: PATCH has no trip field. Saving invalidates `memoryDetailProvider(id)` and `memoriesProvider`, then pops.
 - Explore (`lib/features/explore`): `ExploreRepository` (`GET /explore/categories`, `GET /explore/places/category/{name}` (by category name, server default limit 50), `GET /places?q=` (400 under 2 characters, so the app searches from 2), `GET /places/{id}`, `GET|POST /explore/wishlist` (`{placeId}`, 409 if already saved), `DELETE /explore/wishlist/{itemId}` (the item id, not the place id), `POST /explore/wishlist/{itemId}/plan` (`{tripId, plannedDate?, notes?, removeFromWishlist}`, 409 if the trip already plans it)). Providers: `categoriesProvider`, `placesByCategoryProvider(name)`, `placeSearchProvider(query)`, `placeDetailProvider(id)`, `wishlistProvider`. Explore tab has Discover (debounced search field, category chips, first category selected by default as there is no "all" endpoint, loading/error/empty states, heart toggle per place from `WishlistButton`) and Wishlist (remove, "Plan into trip": pick a trip from `tripsProvider`, plan keeps the item on the wishlist, invalidates `tripDetailProvider(tripId)` and the wishlist, snackbar; trips that already plan the place are disabled). Places have no photo or rating in the API, so rows are text only. Place detail route `/explore/places/:id` (`AppRoutes.placeDetail`). Community (`/explore/community/friends`) not built.
 - Trip covers: `TripResponse` carries only `coverMediaId` (Sam's call); the app fetches the signed link with `GET /api/media/{id}` (`mediaUrlProvider`), lazily per card, reused for 50 minutes because links expire after the backend's 1-hour download TTL. Add a batch endpoint only if a screen ever shows many covers.
-- Tests: 59 (explore, memories incl. update body and edit prefill, trips, auth, profile, router, time, Home, smoke). `flutter analyze` clean. Android build not yet verified on a device.
+- Tests: 60 (401 sign-out, explore, memories incl. update body and edit prefill, trips, auth, profile, router, time, Home, smoke). `flutter analyze` clean. Android build not yet verified on a device.
 
 ## Auth design (PR "Auth rework")
 - `AuthNotifier` (`features/auth/presentation/auth_state.dart`) owns the session: states checking, unauthenticated, loading, authenticated, error. At start it restores the token from `TokenStorage` (`core/storage`, flutter_secure_storage) and checks it with `/auth/check`: rejected tokens are dropped, an unreachable server keeps the session.
@@ -31,7 +31,7 @@ Last updated: 2026-11-11 (memories: edit a saved memory, camera in Capture; expl
 
 ## Known gaps against backend v1
 1. Done in the auth rework: code exchange, persisted token, real user, side-effect-free router.
-2. No global 401 handling yet: if a token expires mid-session, calls fail until the next start. Add a dio interceptor that signs out on 401.
+2. Done: a 401 on a call made with the current token signs the user out (`ApiClient.onUnauthorized`, set by `AuthNotifier`, which clears the token and the router sends the user to login). `/auth/...` calls are excluded (a 401 there can mean wrong credentials), and a late 401 for an old token is ignored (`ApiClient.isSessionRejection`).
 3. Not built yet: collections, community, timeline.
 
 ## Plan (one PR each)
@@ -44,7 +44,7 @@ Last updated: 2026-11-11 (memories: edit a saved memory, camera in Capture; expl
    2. Community: share a memory as a post (`POST /api/posts/share/{memoryId}`), friends feed (`/api/explore/community/friends`), likes/comments as the backend allows.
    3. Statistics and visited-countries map (`/api/statistics/me`), plus History/Remember (`HistoryController`).
    4. Other travelers' public profiles (owner-only fields hidden).
-   Cross-cutting before MVP: dio 401 interceptor (log out on expired token), verify Android build and camera on a real device, video capture, moving a memory to another trip (needs a backend field), replace remaining Unsplash mocks.
+   Cross-cutting before MVP (the 401 sign-out is done): verify Android build and camera on a real device, video capture, moving a memory to another trip (needs a backend field), replace remaining Unsplash mocks.
 
 ## Branching
 Until the MVP is ready, PRs go to `main`. After that, all development goes to `develop` only (Sam, 2026-11-11).

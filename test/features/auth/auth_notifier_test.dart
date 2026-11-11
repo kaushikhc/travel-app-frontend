@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:travel_app_frontend/core/network/api_client.dart';
@@ -85,6 +86,25 @@ void main() {
     repository = FakeAuthRepository();
     google = FakeGoogleGateway();
     api = ApiClient(baseUrl: 'https://api.example/api');
+  });
+
+  test('a 401 on a signed-in call drops the session; auth calls and stale tokens do not', () async {
+    storage.token = 'saved';
+    final ProviderContainer c = makeContainer();
+    expect((await settled(c)).status, AuthStatus.authenticated);
+    DioException err(String path, int status, String? header) => DioException(
+          requestOptions: RequestOptions(path: path, headers: <String, dynamic>{'Authorization': ?header}),
+          response: Response<dynamic>(requestOptions: RequestOptions(path: path), statusCode: status),
+        );
+    expect(ApiClient.isSessionRejection(err('/auth/login', 401, 'Bearer saved'), 'saved'), isFalse);
+    expect(ApiClient.isSessionRejection(err('/trips', 401, 'Bearer old'), 'saved'), isFalse);
+    expect(ApiClient.isSessionRejection(err('/trips', 403, 'Bearer saved'), 'saved'), isFalse);
+    expect(ApiClient.isSessionRejection(err('/trips', 401, 'Bearer saved'), 'saved'), isTrue);
+    api.onUnauthorized!.call();
+    await pumpEventQueue();
+    expect(c.read(authStateProvider).status, AuthStatus.unauthenticated);
+    expect(api.hasAuthToken, isFalse);
+    expect(storage.token, isNull);
   });
 
   test('no saved token: signed out', () async {
