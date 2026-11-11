@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/router/auth_redirect.dart';
 import 'profile_state.dart';
 import '../../../core/time/api_time.dart';
 import '../../places/presentation/country_picker.dart';
@@ -169,6 +170,28 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
                               : _buildProfileView(theme, profileState),
                         ),
                       ),
+                      if (!_isEditing) ...[
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: () => context.push(AppRoutes.followers),
+                                icon: const Icon(Icons.group_outlined),
+                                label: const Text('Followers'),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: () => context.push(AppRoutes.following),
+                                icon: const Icon(Icons.person_add_alt_outlined),
+                                label: const Text('Following'),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                       const SizedBox(height: 24),
 
                       // Achievements Grid Section
