@@ -1,12 +1,12 @@
 # Project status: Flutter client
 
-Last updated: 2026-11-11 (profile photo upload, birthday picker)
+Last updated: 2026-11-11 (age only from birthday)
 
 ## Where things stand
 - Scaffold with feature folders: auth, profile, trip, memories, capture, explore, navigation.
 - Profile sends the device IANA time zone (`flutter_timezone`) whenever it differs from the server's; countries come from `GET /api/places/countries` (`CountryPicker`, searchable).
 - Profile photo: picking a photo uploads it straight away through the media API (`MediaRepository.uploadPhoto`: `POST /api/media/uploads`, PUT the bytes to the signed URL with a plain Dio, `POST /api/media/{id}/complete`), and saving sends `photoMediaId` (needs backend kaushikhc/travel-app#37). The profile's `photoUrl` is the signed link to show. Never send base64 in `photoUrl`; the backend rejects it.
-- Birthday: `BirthdayPicker` (day, month, year dropdowns; no impossible or future dates), sent as `yyyy-MM-dd` (`ApiDate`). The server works out `age` from the birthday; the Age field only shows when no birthday is picked.
+- Birthday: `BirthdayPicker` (day, month, year dropdowns; no impossible or future dates), sent as `yyyy-MM-dd` (`ApiDate`). There is no Age input: the server works out `age` from the birthday. Birthday is only returned by `GET /profile/me`, so other travelers never see it.
 - Wired to the API: email login and register, Google sign-in (native on Android via `POST /api/auth/google`, redirect plus `POST /api/auth/exchange` on web), `/auth/check`, `/auth/logout`, `GET|PUT /profile/me`.
 - Home tab (`TripsView`) on real data: `GET /api/trips/home` (current trip with day progress, upcoming, drafts) and `GET /api/statistics/me` (countries, trips, memories), with loading, empty and error states. `TripModel` uses the backend statuses (DRAFT/UPCOMING/ACTIVE/ARCHIVED).
 - Mock data only: memories, capture, explore. Trip covers: `TripResponse` carries only `coverMediaId` (Sam's call); the app fetches the signed link with `GET /api/media/{id}` (`mediaUrlProvider`), lazily per card, reused for 50 minutes because links expire after the backend's 1-hour download TTL. Add a batch endpoint only if a screen ever shows many covers.

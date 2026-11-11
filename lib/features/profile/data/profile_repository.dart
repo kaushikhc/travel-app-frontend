@@ -29,7 +29,6 @@ class ProfileRepository {
     String? bio,
     int? homeCountryId,
     int? photoMediaId,
-    int? age,
     DateTime? birthday,
   }) async {
     final response = await _apiClient.put(
@@ -39,7 +38,6 @@ class ProfileRepository {
         bio: bio,
         homeCountryId: homeCountryId,
         photoMediaId: photoMediaId,
-        age: age,
         birthday: birthday,
       ),
     );
@@ -55,7 +53,6 @@ class ProfileRepository {
     String? bio,
     int? homeCountryId,
     int? photoMediaId,
-    int? age,
     DateTime? birthday,
   }) {
     return <String, dynamic>{
@@ -63,7 +60,6 @@ class ProfileRepository {
       'bio': bio,
       'homeCountryId': homeCountryId,
       'photoMediaId': ?photoMediaId,
-      'age': age,
       'birthday': birthday == null ? null : ApiDate.format(birthday),
     };
   }

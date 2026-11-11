@@ -62,7 +62,6 @@ class ProfileNotifier extends Notifier<ProfileState> {
     String? bio,
     int? homeCountryId,
     int? photoMediaId,
-    int? age,
     DateTime? birthday,
   }) async {
     final currentProfile = state.profile;
@@ -73,7 +72,6 @@ class ProfileNotifier extends Notifier<ProfileState> {
         bio: bio,
         homeCountryId: homeCountryId,
         photoMediaId: photoMediaId,
-        age: age,
         birthday: birthday,
       );
       if (ref.mounted) state = ProfileState.success(updated);

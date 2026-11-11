@@ -24,7 +24,6 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
   late TextEditingController _displayNameController;
   late TextEditingController _bioController;
   int? _homeCountryId;
-  late TextEditingController _ageController;
   DateTime? _birthday;
   String? _photoUrl;
   UploadedPhoto? _newPhoto;
@@ -35,14 +34,12 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
     super.initState();
     _displayNameController = TextEditingController();
     _bioController = TextEditingController();
-    _ageController = TextEditingController();
   }
 
   @override
   void dispose() {
     _displayNameController.dispose();
     _bioController.dispose();
-    _ageController.dispose();
     super.dispose();
   }
 
@@ -52,7 +49,6 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
       _displayNameController.text = p.displayName;
       _bioController.text = p.bio ?? '';
       _homeCountryId = p.homeCountryId;
-      _ageController.text = p.age?.toString() ?? '';
       _birthday = p.birthday;
       _photoUrl = p.photoUrl;
       _newPhoto = null;
@@ -77,7 +73,6 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
   Future<void> _saveChanges() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final age = int.tryParse(_ageController.text);
     final success = await ref
         .read(profileNotifierProvider.notifier)
         .updateProfile(
@@ -85,7 +80,6 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
           bio: _bioController.text.trim(),
           homeCountryId: _homeCountryId,
           photoMediaId: _newPhoto?.mediaId,
-          age: _birthday == null ? age : null,
           birthday: _birthday,
         );
 
@@ -380,24 +374,9 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
           Text('Birthday', style: theme.textTheme.labelLarge),
           const SizedBox(height: 8),
           BirthdayPicker(value: _birthday, onChanged: (DateTime? d) => setState(() => _birthday = d)),
-          if (_birthday == null) ...<Widget>[
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _ageController,
-              keyboardType: TextInputType.number,
-              decoration: InputDecoration(
-                labelText: 'Age (if you\'d rather not give a birthday)',
-                prefixIcon: const Icon(Icons.calendar_today_rounded),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-              validator: (value) {
-                if (value != null && value.trim().isNotEmpty && int.tryParse(value) == null) {
-                  return 'Must be valid age';
-                }
-                return null;
-              },
-            ),
-          ],
+          const SizedBox(height: 6),
+          Text('Age is worked out from your birthday. Only you can see your birthday.',
+              style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey)),
         ],
       ),
     );
