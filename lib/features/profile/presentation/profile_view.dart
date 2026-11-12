@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/branding/app_brand.dart';
 import '../../../core/router/auth_redirect.dart';
 import 'profile_state.dart';
 import '../../../core/time/api_time.dart';
@@ -122,7 +123,7 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
           IconButton(
             tooltip: 'Open-source licenses',
             icon: const Icon(Icons.info_outline_rounded),
-            onPressed: () => showLicensePage(context: context, applicationName: 'Travel App'),
+            onPressed: () => showLicensePage(context: context, applicationName: AppBrand.name),
           ),
           IconButton(
             tooltip: 'Sign Out',

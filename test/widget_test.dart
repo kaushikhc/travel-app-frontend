@@ -15,7 +15,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Travel App'), findsOneWidget);
+    expect(find.text('Trailmark'), findsOneWidget);
     expect(find.text('Sign In'), findsWidgets);
   });
 }

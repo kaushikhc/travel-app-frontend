@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../../core/branding/app_brand.dart';
 import '../data/auth_repository.dart';
 import 'auth_state.dart';
 
@@ -133,21 +134,10 @@ class _LoginViewState extends ConsumerState<LoginView> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       // Header Logo & Title
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.primary.withValues(alpha: 0.15),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          Icons.explore,
-                          size: 44,
-                          color: theme.colorScheme.primary,
-                        ),
-                      ),
+                      const AppLogo(size: 88),
                       const SizedBox(height: 16),
                       Text(
-                        'Travel App',
+                        AppBrand.name,
                         style: theme.textTheme.headlineMedium?.copyWith(
                           fontWeight: FontWeight.bold,
                         ),
