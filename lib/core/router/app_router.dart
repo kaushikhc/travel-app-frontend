@@ -193,8 +193,12 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: '/capture',
-            pageBuilder: (context, state) => const NoTransitionPage(
-              child: CaptureView(),
+            pageBuilder: (context, state) => NoTransitionPage(
+              child: CaptureView(
+                initialTripId: int.tryParse(state.uri.queryParameters['tripId'] ?? ''),
+                initialPlaceId: int.tryParse(state.uri.queryParameters['placeId'] ?? ''),
+                initialPlaceName: state.uri.queryParameters['name'],
+              ),
             ),
           ),
           GoRoute(

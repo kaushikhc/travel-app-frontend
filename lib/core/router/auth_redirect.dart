@@ -25,6 +25,9 @@ abstract final class AppRoutes {
   static String placeMemories(int tripId, int placeId, String name) =>
       '/memories/place/$placeId?tripId=$tripId&name=${Uri.encodeQueryComponent(name)}';
   static const String capture = '/capture';
+  /// The new-memory form with the trip and place already filled in.
+  static String captureForPlace(int tripId, int placeId, String name) =>
+      '/capture?tripId=$tripId&placeId=$placeId&name=${Uri.encodeQueryComponent(name)}';
   static String memoryDetail(int id) => '/memories/$id';
   static String editMemory(int id) => '/memories/$id/edit';
   static const String explore = '/explore';
