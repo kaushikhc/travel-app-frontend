@@ -25,6 +25,7 @@ import '../../features/memories/presentation/memory_detail_view.dart';
 import '../../features/capture/presentation/capture_view.dart';
 import '../../features/explore/presentation/explore_view.dart';
 import '../../features/explore/presentation/place_detail_view.dart';
+import '../../features/notifications/presentation/notifications_view.dart';
 import '../../features/profile/presentation/profile_view.dart';
 import '../../features/profile/presentation/profile_setup_view.dart';
 import '../../features/profile/presentation/profile_state.dart';
@@ -206,7 +207,11 @@ final routerProvider = Provider<GoRouter>((ref) {
             ],
           ),
           GoRoute(
-            path: '/profile',
+            path: AppRoutes.notifications,
+            builder: (BuildContext context, GoRouterState state) => const NotificationsView(),
+          ),
+          GoRoute(
+            path: AppRoutes.profile,
             pageBuilder: (context, state) => const NoTransitionPage(
               child: ProfileView(),
             ),
