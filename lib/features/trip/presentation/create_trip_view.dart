@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../tags/presentation/tag_suggestions.dart';
 import '../../profile/presentation/widgets/profile_photo_upload.dart';
 import '../../media/data/media_repository.dart';
 import '../data/trip_repository.dart';
@@ -238,6 +239,7 @@ class _CreateTripViewState extends ConsumerState<CreateTripView> {
                         return null;
                       },
                     ),
+                    TagSuggestions(controller: _tags),
                     const SizedBox(height: 16),
                     if (coverBytes != null)
                       ClipRRect(

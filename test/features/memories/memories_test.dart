@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:travel_app_frontend/features/tags/data/tag_repository.dart';
 import 'package:travel_app_frontend/core/network/api_client.dart';
 import 'package:travel_app_frontend/features/capture/presentation/capture_view.dart';
 import 'package:travel_app_frontend/features/media/data/media_repository.dart';
@@ -162,6 +163,7 @@ void main() {
               const TripModel(id: 3, name: 'Kerala', status: TripStatus.active),
             ],
           ),
+          myTagsProvider.overrideWith((Ref ref) async => <String>[]),
           mediaUrlProvider.overrideWith((Ref ref, int id) async => null),
         ],
         child: MaterialApp(home: CaptureView(memory: m)),
