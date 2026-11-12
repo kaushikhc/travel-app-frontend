@@ -345,32 +345,7 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text('Edit Profile Details', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-              Row(
-                children: [
-                  TextButton(onPressed: () => setState(() => _isEditing = false), child: const Text('Cancel')),
-                  const SizedBox(width: 8),
-                  ElevatedButton(
-                    onPressed: profileState.isLoading ? null : _saveChanges,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: theme.colorScheme.primary,
-                      foregroundColor: Colors.white,
-                    ),
-                    child: profileState.isLoading
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                          )
-                        : const Text('Save'),
-                  ),
-                ],
-              ),
-            ],
-          ),
+          Text('Edit Profile Details', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
           const SizedBox(height: 20),
           Center(child: _buildAvatar(theme, isEditingMode: true)),
           const SizedBox(height: 24),
@@ -405,6 +380,35 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
           const SizedBox(height: 6),
           Text('Age is worked out from your birthday. Only you can see your birthday.',
               style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey)),
+          const SizedBox(height: 24),
+          // Actions sit under the form so they always fit, even on narrow phones.
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: profileState.isLoading ? null : () => setState(() => _isEditing = false),
+                  child: const Text('Cancel'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: profileState.isLoading ? null : _saveChanges,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: theme.colorScheme.primary,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: profileState.isLoading
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        )
+                      : const Text('Save'),
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
