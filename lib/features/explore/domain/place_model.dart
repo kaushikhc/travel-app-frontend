@@ -11,6 +11,11 @@ class PlaceModel {
   final String? address;
   final String? isoCode;
   final int? countryId;
+  final int? regionId;
+  final int? cityId;
+
+  /// Kinds of place such as Zoo or Temple (names from `GET /api/explore/categories`), A to Z.
+  final List<String> categories;
 
   const PlaceModel({
     required this.id,
@@ -21,6 +26,9 @@ class PlaceModel {
     this.address,
     this.isoCode,
     this.countryId,
+    this.regionId,
+    this.cityId,
+    this.categories = const <String>[],
   });
 
   factory PlaceModel.fromJson(Map<String, dynamic> json) {
@@ -33,12 +41,23 @@ class PlaceModel {
       address: json['address'] as String?,
       isoCode: json['isoCode'] as String?,
       countryId: (json['countryId'] as num?)?.toInt(),
+      regionId: (json['regionId'] as num?)?.toInt(),
+      cityId: (json['cityId'] as num?)?.toInt(),
+      categories: (json['categories'] as List<dynamic>? ?? const <dynamic>[]).whereType<String>().toList(growable: false),
     );
   }
 
-  /// Type and address on one line, for list rows.
+  /// What kind of place this is: its categories (Zoo, Park), else its type unless that is the generic
+  /// point of interest. Empty when unknown.
+  String get kind {
+    if (categories.isNotEmpty) return categories.join(', ');
+    final String t = type?.trim() ?? '';
+    return t == 'POINT_OF_INTEREST' ? '' : t;
+  }
+
+  /// Kind and address on one line, for list rows.
   String get subtitle => <String>[
-        if (type != null && type!.trim().isNotEmpty) type!.trim(),
+        if (kind.isNotEmpty) kind,
         if (address != null && address!.trim().isNotEmpty) address!.trim(),
       ].join(' · ');
 }
