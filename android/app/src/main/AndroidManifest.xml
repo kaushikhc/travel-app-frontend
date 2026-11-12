@@ -2,7 +2,7 @@
     <!-- Release builds call the API too; debug builds get this from the debug manifest. -->
     <uses-permission android:name="android.permission.INTERNET"/>
     <application
-        android:label="travel_app_frontend"
+        android:label="Trailmark"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
