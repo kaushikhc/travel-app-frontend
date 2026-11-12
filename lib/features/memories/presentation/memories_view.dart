@@ -8,6 +8,7 @@ import '../../trip/data/trip_repository.dart';
 import '../../trip/domain/trip_model.dart';
 import '../data/memory_repository.dart';
 import '../domain/memory_model.dart';
+import '../domain/memory_stack.dart';
 import 'widgets/memory_photo.dart';
 
 class MemoriesView extends ConsumerStatefulWidget {
@@ -98,6 +99,7 @@ class _MemoriesViewState extends ConsumerState<MemoriesView> {
     final List<MemoryModel> shown = selected == null
         ? all
         : all.where((MemoryModel m) => m.tags.any((String t) => t.toLowerCase() == selected)).toList(growable: false);
+    final List<MemoryStack> stacks = groupMemoriesByTrip(shown);
     final List<String> tagKeys = tags.keys.toList()..sort();
     return CustomScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
@@ -132,10 +134,10 @@ class _MemoriesViewState extends ConsumerState<MemoriesView> {
               crossAxisSpacing: 16,
               childAspectRatio: 0.8,
             ),
-            itemCount: shown.length,
-            itemBuilder: (BuildContext c, int i) => _MemoryCard(
-              memory: shown[i],
-              tripName: tripNames[shown[i].tripId],
+            itemCount: stacks.length,
+            itemBuilder: (BuildContext c, int i) => _StackCard(
+              stack: stacks[i],
+              tripName: tripNames[stacks[i].tripId] ?? (stacks[i].tripId == null ? 'Other memories' : 'Trip'),
             ),
           ),
         ),
@@ -144,52 +146,84 @@ class _MemoriesViewState extends ConsumerState<MemoriesView> {
   }
 }
 
-class _MemoryCard extends StatelessWidget {
-  final MemoryModel memory;
-  final String? tripName;
+/// One trip's memories as a stack: the cover photo with two cards peeking out behind it.
+class _StackCard extends StatelessWidget {
+  final MemoryStack stack;
+  final String tripName;
 
-  const _MemoryCard({required this.memory, required this.tripName});
+  const _StackCard({required this.stack, required this.tripName});
 
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
-    final DateTime? date = memory.date;
-    final String subtitle = <String>[
-      ?tripName,
-      if (date != null) ApiTime.formatDate(date),
-    ].join(' · ');
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: () => context.push(AppRoutes.memoryDetail(memory.id)),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: <Widget>[
-            Expanded(
-              child: memory.cover == null
-                  ? ColoredBox(
-                      color: theme.colorScheme.primaryContainer,
-                      child: Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Text(memory.note ?? '', maxLines: 6, overflow: TextOverflow.ellipsis),
+    final DateTime? newest = stack.newest;
+    final DateTime? oldest = stack.oldest;
+    final String dates = newest == null
+        ? ''
+        : (oldest == null || ApiTime.formatDate(oldest) == ApiTime.formatDate(newest))
+            ? ApiTime.formatDate(newest)
+            : '${ApiTime.formatDate(oldest)} – ${ApiTime.formatDate(newest)}';
+    final MemoryModel cover = stack.coverMemory;
+    Widget layer(double inset, double top, double opacity) => Positioned(
+          left: inset,
+          right: inset,
+          top: top,
+          bottom: 0,
+          child: Card(margin: EdgeInsets.zero, color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: opacity)),
+        );
+    return Semantics(
+      button: true,
+      label: '$tripName, ${stack.count} memories',
+      child: Stack(
+        children: <Widget>[
+          layer(16, 0, 0.6),
+          layer(8, 6, 0.9),
+          Positioned.fill(
+            top: 12,
+            child: Card(
+              margin: EdgeInsets.zero,
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                onTap: () => context.push(AppRoutes.tripMemories(stack.tripId)),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: <Widget>[
+                    Expanded(
+                      child: cover.cover == null
+                          ? ColoredBox(
+                              color: theme.colorScheme.primaryContainer,
+                              child: Padding(
+                                padding: const EdgeInsets.all(12),
+                                child: Text(cover.note ?? '', maxLines: 6, overflow: TextOverflow.ellipsis),
+                              ),
+                            )
+                          : MemoryPhoto(media: cover.cover),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Text(tripName,
+                              maxLines: 1, overflow: TextOverflow.ellipsis, style: theme.textTheme.titleSmall),
+                          Text(
+                            <String>[
+                              stack.count == 1 ? '1 memory' : '${stack.count} memories',
+                              if (dates.isNotEmpty) dates,
+                            ].join(' · '),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodySmall,
+                          ),
+                        ],
                       ),
-                    )
-                  : MemoryPhoto(media: memory.cover),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Text(memory.displayTitle,
-                      maxLines: 1, overflow: TextOverflow.ellipsis, style: theme.textTheme.titleSmall),
-                  if (subtitle.isNotEmpty)
-                    Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: theme.textTheme.bodySmall),
-                ],
+                    ),
+                  ],
+                ),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
