@@ -85,25 +85,34 @@ class TripsView extends ConsumerWidget {
                       Row(
                         children: [
                           // Notification Bell Button
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: theme.colorScheme.primary.withValues(alpha: 0.1),
-                              shape: BoxShape.circle,
+                          IconButton(
+                            key: const Key('home-notifications'),
+                            tooltip: 'Notifications',
+                            onPressed: () => context.push(AppRoutes.notifications),
+                            style: IconButton.styleFrom(
+                              backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.1),
                             ),
-                            child: Icon(
+                            icon: Icon(
                               Icons.notifications_outlined,
                               color: theme.colorScheme.primary,
                               size: 24,
                             ),
                           ),
                           const SizedBox(width: 12),
-                          // User Profile Avatar
-                          CircleAvatar(
-                            radius: 20,
-                            backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.15),
-                            backgroundImage: avatarImage,
-                            child: avatarImage == null ? Icon(Icons.person, color: theme.colorScheme.primary) : null,
+                          // User Profile Avatar: opens the Profile tab.
+                          Tooltip(
+                            message: 'Profile',
+                            child: InkWell(
+                              key: const Key('home-profile'),
+                              customBorder: const CircleBorder(),
+                              onTap: () => context.go(AppRoutes.profile),
+                              child: CircleAvatar(
+                                radius: 20,
+                                backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.15),
+                                backgroundImage: avatarImage,
+                                child: avatarImage == null ? Icon(Icons.person, color: theme.colorScheme.primary) : null,
+                              ),
+                            ),
                           ),
                         ],
                       ),

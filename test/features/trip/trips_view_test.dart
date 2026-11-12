@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
+import 'package:travel_app_frontend/core/router/auth_redirect.dart';
+import 'package:travel_app_frontend/features/notifications/presentation/notifications_view.dart';
 import 'package:travel_app_frontend/core/network/api_client.dart';
 import 'package:travel_app_frontend/features/auth/domain/user_model.dart';
 import 'package:travel_app_frontend/features/media/data/media_repository.dart';
@@ -33,16 +36,32 @@ class IdleProfile extends ProfileNotifier {
   ProfileState build() => ProfileState.idle();
 }
 
-Widget _app(HomeOverview home) => ProviderScope(
-      overrides: [
+List<Override> _overrides(HomeOverview home) => <Override>[
         authStateProvider.overrideWith(SignedIn.new),
         profileNotifierProvider.overrideWith(IdleProfile.new),
         mediaRepositoryProvider.overrideWithValue(media),
         homeOverviewProvider.overrideWith((Ref ref) async => home),
         travelStatsProvider.overrideWith(
             (Ref ref) async => const TravelStats(countriesVisited: 3, tripsCompleted: 1234, memories: 9)),
-      ],
+    ];
+
+Widget _app(HomeOverview home) => ProviderScope(
+      overrides: _overrides(home),
       child: const MaterialApp(home: Scaffold(body: TripsView())),
+    );
+
+Widget _routedApp() => ProviderScope(
+      overrides: _overrides(const HomeOverview()),
+      child: MaterialApp.router(
+        routerConfig: GoRouter(
+          initialLocation: AppRoutes.home,
+          routes: <RouteBase>[
+            GoRoute(path: AppRoutes.home, builder: (BuildContext c, GoRouterState s) => const TripsView()),
+            GoRoute(path: AppRoutes.notifications, builder: (BuildContext c, GoRouterState s) => const NotificationsView()),
+            GoRoute(path: AppRoutes.profile, builder: (BuildContext c, GoRouterState s) => const Text('profile page')),
+          ],
+        ),
+      ),
     );
 
 void main() {
@@ -76,5 +95,21 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('No trip in progress'), findsOneWidget);
     expect(find.textContaining('No upcoming trips yet.'), findsOneWidget);
+  });
+
+  testWidgets('the bell opens an empty notifications page', (WidgetTester tester) async {
+    await tester.pumpWidget(_routedApp());
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('home-notifications')));
+    await tester.pumpAndSettle();
+    expect(find.text('No notifications yet'), findsOneWidget);
+  });
+
+  testWidgets('the avatar opens the profile', (WidgetTester tester) async {
+    await tester.pumpWidget(_routedApp());
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('home-profile')));
+    await tester.pumpAndSettle();
+    expect(find.text('profile page'), findsOneWidget);
   });
 }
