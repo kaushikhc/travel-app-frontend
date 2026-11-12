@@ -1,6 +1,6 @@
 # Project status: Flutter client
 
-Last updated: 2026-11-11 (per-trip Memory View, collections and followers/following lists merged)
+Last updated: 2026-11-12 (photo upload errors name the failing step, rotated photos are straightened, the picker no longer re-encodes; per-trip Memory View, collections and followers/following lists merged)
 
 ## Where things stand
 - Scaffold with feature folders: auth, profile, trip, memories, capture, explore, navigation.
@@ -61,7 +61,9 @@ Until the MVP is ready, PRs go to `main`. After that, all development goes to `d
 
 ## How to run
 - Backend CORS allows only the `Authorization`, `Content-Type` and `Accept` headers. Don't add other default headers for non-ngrok hosts, or browser calls fail as "could not reach the server".
-- Photo uploads in dev go to the local S3 server from the backend's `docker compose up -d` (localhost:9090). The signed upload URL points at localhost, so uploads work from the PC only, not from another device over ngrok. For the deployed web build, the R2 bucket needs a CORS rule for the app's origin.
+- Photo uploads in dev go to the local S3 server from the backend's `docker compose up -d` (localhost:9090). A phone cannot reach that address, so the app fails with "Upload failed at storage: Connection refused". On the backend (develop), set `APP_STORAGE_RELAY_BASE_URL` to the one ngrok address of the backend and the backend relays the bytes (no second tunnel). See the backend's PROJECT_STATUS.md, "Testing photos from a phone". For the deployed web build, the R2 bucket needs a CORS rule for the app's origin.
+- Photo upload errors: `MediaRepository.uploadPhoto` throws `MediaUploadException` naming the step (`start`, `storage`, `confirm`) and the HTTP status; the snackbars show it (`photoUploadError`). Picker failures show "Could not open the photo picker"; other unexpected errors show their type.
+- Photo rotation: phone JPEGs often rely on an EXIF orientation flag. `uprightPhoto` (`features/media/data/photo_orientation.dart`, runs in an isolate) bakes the rotation into the pixels and drops the flag before every upload; upright JPEGs and non-JPEGs pass through untouched. Both `FilePicker.pickFiles` image calls pass `compressionQuality: 0`: file_picker's Android default re-encodes at quality 30, which strips the flag but leaves the pixels sideways (and cuts quality), so rotation can no longer be fixed afterwards. HEIC is not straightened.
 - PC, Chrome: `flutter run -d chrome --web-port 8080 --dart-define-from-file=env/dev.json` (port 8080 is where the backend sends Google sign-in back; on localhost the app calls `http://localhost/api`).
 - Android emulator: `--dart-define=API_BASE_URL=http://10.0.2.2/api` (or an env file; 10.0.2.2 is the PC). Debug builds allow plain http for this; release builds need https.
 
