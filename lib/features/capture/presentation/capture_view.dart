@@ -60,7 +60,21 @@ class _PickedPhoto {
 class CaptureView extends ConsumerStatefulWidget {
   final MemoryModel? memory;
 
-  const CaptureView({super.key, this.memory});
+  /// Optional prefill for a new memory (e.g. from the itinerary): the trip and a place already
+  /// planned on it.
+  final int? initialTripId;
+  final int? initialPlaceId;
+  final String? initialPlaceName;
+
+  const CaptureView({
+    super.key,
+    this.memory,
+    this.initialTripId,
+    this.initialPlaceId,
+    this.initialPlaceName,
+  });
+
+  bool get _prefilled => initialTripId != null && memory == null;
 
   @override
   ConsumerState<CaptureView> createState() => _CaptureViewState();
@@ -107,6 +121,11 @@ class _CaptureViewState extends ConsumerState<CaptureView> {
       _tripId = m.tripId;
       _tripTouched = true;
       _placeId = m.placeId;
+    } else if (widget._prefilled) {
+      _tripId = widget.initialTripId;
+      _tripTouched = true;
+      _placeId = widget.initialPlaceId;
+      _placeName = widget.initialPlaceName;
     }
   }
 
@@ -238,6 +257,11 @@ class _CaptureViewState extends ConsumerState<CaptureView> {
       ref.invalidate(homeOverviewProvider);
       ref.invalidate(travelStatsProvider);
       if (!mounted) return;
+      if (widget._prefilled && context.canPop()) {
+        // Opened from the itinerary: go back there.
+        context.pop();
+        return;
+      }
       _title.clear();
       _note.clear();
       _tags.clear();

@@ -6,6 +6,7 @@ import '../../../core/router/auth_redirect.dart';
 import '../data/trip_repository.dart';
 import '../domain/itinerary.dart';
 import '../domain/trip_detail_model.dart';
+import '../domain/trip_model.dart';
 
 /// Read-only, day-by-day itinerary of a trip, built from the trip's places, stays, transport
 /// and visits (no extra API calls beyond [tripDetailProvider]).
@@ -42,6 +43,9 @@ class TripItineraryView extends ConsumerWidget {
   Widget _content(BuildContext context, TripDetail d) {
     final ThemeData theme = Theme.of(context);
     final Itinerary it = buildItinerary(d);
+    // Memories only make sense once the trip has started.
+    final bool canAddMemory =
+        d.trip.status == TripStatus.active || d.trip.status == TripStatus.archived;
     if (it.isEmpty) {
       return const Center(
         child: Padding(
@@ -82,18 +86,18 @@ class TripItineraryView extends ConsumerWidget {
               ),
             )
           else
-            for (final ItineraryEntry e in day.entries) _row(context, e),
+            for (final ItineraryEntry e in day.entries) _row(context, e, canAddMemory),
         ],
         if (it.unscheduled.isNotEmpty) ...<Widget>[
           const SizedBox(height: 20),
           Text('No date yet', style: theme.textTheme.titleMedium),
-          for (final ItineraryEntry e in it.unscheduled) _row(context, e),
+          for (final ItineraryEntry e in it.unscheduled) _row(context, e, canAddMemory),
         ],
       ],
     );
   }
 
-  Widget _row(BuildContext context, ItineraryEntry e) => ListTile(
+  Widget _row(BuildContext context, ItineraryEntry e, bool canAddMemory) => ListTile(
     contentPadding: EdgeInsets.zero,
     dense: true,
     leading: Icon(_icon(e.kind)),
@@ -103,6 +107,14 @@ class TripItineraryView extends ConsumerWidget {
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
         if (e.time != null) Text(DateFormat.jm().format(e.time!)),
+        if (e.placeId != null && canAddMemory)
+          IconButton(
+            tooltip: 'Add memory',
+            icon: const Icon(Icons.add_photo_alternate_outlined),
+            onPressed: () => context.push(
+              AppRoutes.captureForPlace(tripId, e.placeId!, e.title),
+            ),
+          ),
         if (e.placeId != null)
           IconButton(
             tooltip: 'Memories',
