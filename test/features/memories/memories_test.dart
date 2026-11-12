@@ -122,6 +122,26 @@ void main() {
     },
   );
 
+  test('updateMemory sends capturedAt only when the traveler changed it', () async {
+    final FakeApi api = FakeApi();
+    await MemoryRepository(api).updateMemory(
+      7,
+      title: 'T',
+      note: '',
+      visibility: MemoryVisibility.private,
+      tags: <String>[],
+      mediaIds: <int>[1],
+      capturedAt: DateTime.utc(2026, 3, 1, 8, 15),
+    );
+    expect((api.body as Map<String, dynamic>)['capturedAt'], '2026-03-01T08:15:00.000');
+  });
+
+  test('createMemory without a time sends null so the backend uses the photo time', () async {
+    final FakeApi api = FakeApi();
+    await MemoryRepository(api).createMemory(tripId: 3, title: 'x');
+    expect((api.body as Map<String, dynamic>)['capturedAt'], isNull);
+  });
+
   testWidgets('edit mode is prefilled with the saved memory', (
     WidgetTester tester,
   ) async {

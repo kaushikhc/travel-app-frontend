@@ -93,6 +93,23 @@ void main() {
     expect(adapter.body, <int>[1, 2, 3, 4]);
   });
 
+  test('uploadPhoto sends the capture time as a UTC LocalDateTime when it has one', () async {
+    final FakeApi api = FakeApi();
+    final Dio storage = Dio()..httpClientAdapter = RecordingAdapter();
+
+    await MediaRepository(api, storage: storage).uploadPhoto(
+      Uint8List.fromList(<int>[1, 2, 3, 4]),
+      'image/jpeg',
+      capturedAt: DateTime.utc(2026, 11, 12, 10, 11, 12),
+    );
+
+    expect(api.uploadBody, <String, dynamic>{
+      'mimeType': 'image/jpeg',
+      'sizeBytes': 4,
+      'capturedAt': '2026-11-12T10:11:12.000',
+    });
+  });
+
   test('photoMimeType maps the extensions the backend accepts', () {
     expect(photoMimeType('Me.JPG'), 'image/jpeg');
     expect(photoMimeType('a.heic'), 'image/heic');
