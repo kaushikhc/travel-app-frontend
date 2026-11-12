@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../tags/presentation/tag_suggestions.dart';
 import '../../../core/router/auth_redirect.dart';
 import '../../../core/time/api_time.dart';
 import '../../media/data/media_repository.dart';
@@ -17,7 +18,10 @@ import '../../memories/data/memory_repository.dart';
 import '../../memories/domain/memory_model.dart';
 import '../../memories/presentation/widgets/memory_photo.dart';
 import '../../trip/data/trip_repository.dart';
+import '../../trip/domain/trip_detail_model.dart';
 import '../../trip/domain/trip_model.dart';
+import '../../../core/search/search_text.dart';
+import '../../../core/widgets/suggest_dialog.dart';
 import '../../trip/presentation/create_trip_view.dart' show parseTags, maxTagsPerTrip, maxTagLength;
 
 /// The server's `{message}` for a failed call, else a generic text.
@@ -70,6 +74,8 @@ class _CaptureViewState extends ConsumerState<CaptureView> {
   late List<MemoryMedia> _existing;
   int? _tripId;
   bool _tripTouched = false;
+  int? _placeId;
+  String? _placeName;
   MemoryVisibility _visibility = MemoryVisibility.private;
 
   /// The time the traveler chose, which memories sort by. Null means automatic: the earliest photo
@@ -200,6 +206,7 @@ class _CaptureViewState extends ConsumerState<CaptureView> {
           .read(memoryRepositoryProvider)
           .createMemory(
             tripId: _effectiveTrip(trips),
+            placeId: _placeId,
             title: _title.text,
             note: _note.text,
             visibility: _visibility,
@@ -220,6 +227,8 @@ class _CaptureViewState extends ConsumerState<CaptureView> {
         _visibility = MemoryVisibility.private;
         _tripTouched = false;
         _tripId = null;
+        _placeId = null;
+        _placeName = null;
         _capturedAt = null;
         _timeTouched = false;
       });
@@ -311,6 +320,7 @@ class _CaptureViewState extends ConsumerState<CaptureView> {
                     const SizedBox(height: 16),
                     _tripPicker(tripsAsync, trips, tripId),
                     const SizedBox(height: 16),
+                    ..._placeLink(tripId),
                     _timePicker(),
                     const SizedBox(height: 16),
                     TextFormField(
@@ -329,6 +339,7 @@ class _CaptureViewState extends ConsumerState<CaptureView> {
                         return null;
                       },
                     ),
+                    TagSuggestions(controller: _tags),
                     const SizedBox(height: 16),
                     DropdownButtonFormField<MemoryVisibility>(
                       initialValue: _visibility,
@@ -462,6 +473,61 @@ class _CaptureViewState extends ConsumerState<CaptureView> {
     );
   }
 
+  /// "Place in this trip": links a new memory to one of the trip's itinerary places. Not shown when
+  /// editing, because the memory's place cannot be changed after saving.
+  List<Widget> _placeLink(int? tripId) {
+    if (_isEdit || tripId == null) return const <Widget>[];
+    final List<TripPlaceItem> places = <TripPlaceItem>[
+      for (final TripPlaceItem p in ref.watch(tripDetailProvider(tripId)).value?.places ?? const <TripPlaceItem>[])
+        if (p.placeId != null) p,
+    ];
+    final Widget field = places.isEmpty
+        ? Text(
+            'To tie a memory to a place, add the place to the trip\'s itinerary first.',
+            style: Theme.of(context).textTheme.bodySmall,
+          )
+        : InkWell(
+            onTap: _saving
+                ? null
+                : () async {
+                    final TripPlaceItem? picked = await showSuggestDialog<TripPlaceItem>(
+                      context: context,
+                      title: 'Place in this trip',
+                      hint: 'Search this trip\'s places',
+                      minChars: 0,
+                      emptyText: 'No matching place in this trip.',
+                      fetch: (String q) async => rankMatches<TripPlaceItem>(places, q, (TripPlaceItem p) => p.name),
+                      titleOf: (TripPlaceItem p) => p.name,
+                      subtitleOf: (TripPlaceItem p) => p.type,
+                    );
+                    if (picked != null && mounted) {
+                      setState(() {
+                        _placeId = picked.placeId;
+                        _placeName = picked.name;
+                      });
+                    }
+                  },
+            child: InputDecorator(
+              decoration: InputDecoration(
+                labelText: 'Place in this trip (optional)',
+                border: const OutlineInputBorder(),
+                suffixIcon: _placeId == null
+                    ? const Icon(Icons.arrow_drop_down)
+                    : IconButton(
+                        tooltip: 'Clear place',
+                        icon: const Icon(Icons.close),
+                        onPressed: () => setState(() {
+                          _placeId = null;
+                          _placeName = null;
+                        }),
+                      ),
+              ),
+              child: Text(_placeName ?? 'No specific place'),
+            ),
+          );
+    return <Widget>[field, const SizedBox(height: 16)];
+  }
+
   Widget _tripPicker(AsyncValue<List<TripModel>> async, List<TripModel> trips, int? tripId) {
     if (async.isLoading && trips.isEmpty) return const LinearProgressIndicator();
     if (trips.isEmpty) {
@@ -487,6 +553,8 @@ class _CaptureViewState extends ConsumerState<CaptureView> {
           : (int? v) => setState(() {
               _tripTouched = true;
               _tripId = v;
+              _placeId = null;
+              _placeName = null;
             }),
     );
   }

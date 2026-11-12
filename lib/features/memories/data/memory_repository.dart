@@ -37,6 +37,7 @@ class MemoryRepository {
   /// the earliest capture time of the photos (their EXIF), else the time of saving.
   Future<MemoryModel> createMemory({
     int? tripId,
+    int? placeId,
     String? title,
     String? note,
     MemoryVisibility visibility = MemoryVisibility.private,
@@ -48,6 +49,7 @@ class MemoryRepository {
         (await _apiClient.post('/memories',
                 data: createBody(
                   tripId: tripId,
+                  placeId: placeId,
                   title: title,
                   note: note,
                   visibility: visibility,
@@ -60,6 +62,7 @@ class MemoryRepository {
 
   static Map<String, dynamic> createBody({
     int? tripId,
+    int? placeId,
     String? title,
     String? note,
     required MemoryVisibility visibility,
@@ -70,6 +73,7 @@ class MemoryRepository {
     String? clean(String? s) => (s == null || s.trim().isEmpty) ? null : s.trim();
     return <String, dynamic>{
       'tripId': tripId,
+      'placeId': ?placeId,
       'title': clean(title),
       'note': clean(note),
       'visibility': visibility.apiName,
