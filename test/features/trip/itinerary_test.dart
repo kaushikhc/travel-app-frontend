@@ -125,4 +125,19 @@ void main() {
     expect(find.text('No date yet'), findsOneWidget);
     expect(find.text('Munnar'), findsOneWidget);
   });
+
+  test('entries carry their place id so they can link to memories', () {
+    final TripDetail d = TripDetail(
+      trip: TripModel(id: 5, name: 'Kerala', status: TripStatus.upcoming),
+      places: const <TripPlaceItem>[
+        TripPlaceItem(id: 1, placeId: 77, name: 'Kochi'),
+        TripPlaceItem(id: 2, name: 'Unlinked'),
+      ],
+      stays: const <StayItem>[],
+      transports: const <TransportItem>[],
+      visits: const <VisitItem>[],
+    );
+    final Itinerary it = buildItinerary(d);
+    expect(it.unscheduled.map((ItineraryEntry e) => e.placeId), <int?>[77, null]);
+  });
 }

@@ -13,11 +13,16 @@ class ItineraryEntry {
   final String subtitle;
   final DateTime? time;
 
+  /// The canonical place behind the entry (a planned place, a stay or a visit), or null. Entries
+  /// with a place link to that place's memories.
+  final int? placeId;
+
   const ItineraryEntry({
     required this.kind,
     required this.title,
     this.subtitle = '',
     this.time,
+    this.placeId,
   });
 }
 
@@ -66,6 +71,7 @@ Itinerary buildItinerary(TripDetail d) {
     final ItineraryEntry e = ItineraryEntry(
       kind: ItineraryKind.place,
       title: p.name,
+      placeId: p.placeId,
       subtitle: <String>[
         if (p.status != null) _title(p.status!),
         if (p.notes?.isNotEmpty == true) p.notes!,
@@ -87,6 +93,7 @@ Itinerary buildItinerary(TripDetail d) {
           title: s.name,
           subtitle: 'Check-in',
           time: t,
+          placeId: s.placeId,
         ),
       );
     }
@@ -99,6 +106,7 @@ Itinerary buildItinerary(TripDetail d) {
           title: s.name,
           subtitle: 'Check-out',
           time: t,
+          placeId: s.placeId,
         ),
       );
     }
@@ -135,6 +143,7 @@ Itinerary buildItinerary(TripDetail d) {
         title: v.name,
         subtitle: 'Visited',
         time: t,
+        placeId: v.placeId,
       ),
     );
   }

@@ -20,6 +20,8 @@ abstract final class AppRoutes {
   static const String memories = '/memories';
   static const String journey = '/memories/journey';
   static String tripMemoryView(int tripId) => '/memories/trip/$tripId';
+  static String placeMemories(int tripId, int placeId, String name) =>
+      '/memories/place/$placeId?tripId=$tripId&name=${Uri.encodeQueryComponent(name)}';
   static const String capture = '/capture';
   static String memoryDetail(int id) => '/memories/$id';
   static String editMemory(int id) => '/memories/$id/edit';

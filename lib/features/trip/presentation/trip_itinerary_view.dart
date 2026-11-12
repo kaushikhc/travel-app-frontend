@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:go_router/go_router.dart';
+import '../../../core/router/auth_redirect.dart';
 import '../data/trip_repository.dart';
 import '../domain/itinerary.dart';
 import '../domain/trip_detail_model.dart';
@@ -80,24 +82,36 @@ class TripItineraryView extends ConsumerWidget {
               ),
             )
           else
-            for (final ItineraryEntry e in day.entries) _row(e),
+            for (final ItineraryEntry e in day.entries) _row(context, e),
         ],
         if (it.unscheduled.isNotEmpty) ...<Widget>[
           const SizedBox(height: 20),
           Text('No date yet', style: theme.textTheme.titleMedium),
-          for (final ItineraryEntry e in it.unscheduled) _row(e),
+          for (final ItineraryEntry e in it.unscheduled) _row(context, e),
         ],
       ],
     );
   }
 
-  static Widget _row(ItineraryEntry e) => ListTile(
+  Widget _row(BuildContext context, ItineraryEntry e) => ListTile(
     contentPadding: EdgeInsets.zero,
     dense: true,
     leading: Icon(_icon(e.kind)),
     title: Text(e.title.isEmpty ? 'Untitled' : e.title),
     subtitle: e.subtitle.isEmpty ? null : Text(e.subtitle),
-    trailing: e.time == null ? null : Text(DateFormat.jm().format(e.time!)),
+    trailing: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        if (e.time != null) Text(DateFormat.jm().format(e.time!)),
+        if (e.placeId != null)
+          IconButton(
+            tooltip: 'Memories',
+            icon: const Icon(Icons.photo_library_outlined),
+            onPressed: () =>
+                context.push(AppRoutes.placeMemories(tripId, e.placeId!, e.title)),
+          ),
+      ],
+    ),
   );
 
   static IconData _icon(ItineraryKind k) => switch (k) {
