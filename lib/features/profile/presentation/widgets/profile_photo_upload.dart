@@ -4,6 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../media/data/media_repository.dart';
+import '../../../media/data/photo_orientation.dart';
 
 /// The system photo picker failed before any upload started.
 class PhotoPickException implements Exception {
@@ -41,8 +42,10 @@ Future<UploadedPhoto?> pickAndUploadPhoto(WidgetRef ref) async {
   if (mimeType == null) {
     throw const FormatException('Please pick a JPEG, PNG, WebP or HEIC photo.');
   }
-  final int mediaId = await ref.read(mediaRepositoryProvider).uploadPhoto(bytes, mimeType);
-  return UploadedPhoto(mediaId, bytes);
+  // Straighten first so the preview matches what is stored (upload does it too, but it is a no-op then).
+  final Uint8List upright = await uprightPhoto(bytes, mimeType);
+  final int mediaId = await ref.read(mediaRepositoryProvider).uploadPhoto(upright, mimeType);
+  return UploadedPhoto(mediaId, upright);
 }
 
 /// The message to show when [pickAndUploadPhoto] fails.

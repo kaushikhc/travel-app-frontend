@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/api_client.dart';
+import 'photo_orientation.dart';
 
 /// The image types the backend accepts, by file extension.
 const Map<String, String> photoMimeTypes = <String, String>{
@@ -59,7 +60,8 @@ class MediaRepository {
 
   /// Uploads a photo the way the backend expects: ask for a signed URL, PUT the bytes
   /// there, then confirm. Returns the media id, ready to attach (profile photo, trip cover).
-  Future<int> uploadPhoto(Uint8List bytes, String mimeType) async {
+  Future<int> uploadPhoto(Uint8List original, String mimeType) async {
+    final Uint8List bytes = await uprightPhoto(original, mimeType);
     final Map<String, dynamic> ticket =
         (await _step(
               'start',
