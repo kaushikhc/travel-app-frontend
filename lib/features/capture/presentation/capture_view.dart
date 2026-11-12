@@ -16,7 +16,11 @@ import '../../media/data/photo_metadata.dart';
 import '../../memories/data/memory_repository.dart';
 import '../../memories/domain/memory_model.dart';
 import '../../memories/presentation/widgets/memory_photo.dart';
+import '../../explore/data/explore_repository.dart';
+import '../../explore/domain/place_model.dart';
 import '../../trip/data/trip_repository.dart';
+import '../../trip/domain/trip_detail_model.dart';
+import '../../trip/presentation/widgets/place_picker.dart';
 import '../../trip/domain/trip_model.dart';
 import '../../trip/presentation/create_trip_view.dart' show parseTags, maxTagsPerTrip, maxTagLength;
 
@@ -70,6 +74,14 @@ class _CaptureViewState extends ConsumerState<CaptureView> {
   late List<MemoryMedia> _existing;
   int? _tripId;
   bool _tripTouched = false;
+
+  /// The place tagged on the memory (must be planned or visited on the trip). When editing it
+  /// starts as the memory's place and is sent only if changed.
+  int? _placeId;
+  String? _placeName;
+  bool _placeTouched = false;
+  /// True when [_placeId] came from the search and is not yet on the trip; it is planned on save.
+  bool _placeNeedsPlanning = false;
   MemoryVisibility _visibility = MemoryVisibility.private;
 
   /// The time the traveler chose, which memories sort by. Null means automatic: the earliest photo
@@ -93,6 +105,7 @@ class _CaptureViewState extends ConsumerState<CaptureView> {
       _capturedAt = m.capturedAt;
       _tripId = m.tripId;
       _tripTouched = true;
+      _placeId = m.placeId;
     }
   }
 
@@ -178,6 +191,16 @@ class _CaptureViewState extends ConsumerState<CaptureView> {
         for (final _PickedPhoto p in _photos) p.mediaId!,
       ];
       final MemoryModel? editing = widget.memory;
+      final int? saveTrip = editing?.tripId ?? _effectiveTrip(trips);
+      if (_placeNeedsPlanning && _placeId != null && saveTrip != null) {
+        try {
+          await ref.read(tripRepositoryProvider).addTripPlace(saveTrip, placeId: _placeId!);
+        } on DioException catch (e) {
+          if (e.response?.statusCode != 409) rethrow; // already planned on the trip
+        }
+        _placeNeedsPlanning = false;
+        ref.invalidate(tripDetailProvider(saveTrip));
+      }
       if (editing != null) {
         await ref
             .read(memoryRepositoryProvider)
@@ -189,6 +212,8 @@ class _CaptureViewState extends ConsumerState<CaptureView> {
               tags: parseTags(_tags.text),
               mediaIds: mediaIds,
               capturedAt: _timeTouched ? _capturedAt : null,
+              placeChanged: _placeTouched,
+              placeId: _placeId,
             );
         ref.invalidate(memoryDetailProvider(editing.id));
         ref.invalidate(memoriesProvider);
@@ -200,6 +225,7 @@ class _CaptureViewState extends ConsumerState<CaptureView> {
           .read(memoryRepositoryProvider)
           .createMemory(
             tripId: _effectiveTrip(trips),
+            placeId: _placeId,
             title: _title.text,
             note: _note.text,
             visibility: _visibility,
@@ -220,6 +246,7 @@ class _CaptureViewState extends ConsumerState<CaptureView> {
         _visibility = MemoryVisibility.private;
         _tripTouched = false;
         _tripId = null;
+        _clearPlace();
         _capturedAt = null;
         _timeTouched = false;
       });
@@ -311,6 +338,7 @@ class _CaptureViewState extends ConsumerState<CaptureView> {
                     const SizedBox(height: 16),
                     _tripPicker(tripsAsync, trips, tripId),
                     const SizedBox(height: 16),
+                    if (tripId != null) ...<Widget>[_placePicker(tripId), const SizedBox(height: 16)],
                     _timePicker(),
                     const SizedBox(height: 16),
                     TextFormField(
@@ -487,7 +515,78 @@ class _CaptureViewState extends ConsumerState<CaptureView> {
           : (int? v) => setState(() {
               _tripTouched = true;
               _tripId = v;
+              _clearPlace(); // places belong to a trip
             }),
+    );
+  }
+
+  void _clearPlace() {
+    _placeId = null;
+    _placeName = null;
+    _placeNeedsPlanning = false;
+    _placeTouched = _isEdit;
+  }
+
+  static const int _otherPlace = -1;
+
+  /// Tags the memory with a place of the trip's itinerary, or any other place found by search
+  /// (which is then added to the trip's itinerary when the memory is saved).
+  Widget _placePicker(int tripId) {
+    final List<TripPlaceItem> planned = (ref.watch(tripDetailProvider(tripId)).value?.places ?? const <TripPlaceItem>[])
+        .where((TripPlaceItem p) => p.placeId != null)
+        .toList(growable: false);
+    final int? current = _placeId;
+    String? currentName = _placeName;
+    for (final TripPlaceItem p in planned) {
+      if (p.placeId == current) currentName = p.name;
+    }
+    if (current != null && currentName == null) {
+      currentName = ref.watch(placeDetailProvider(current)).value?.name;
+    }
+    final bool inList = planned.any((TripPlaceItem p) => p.placeId == current);
+    return DropdownButtonFormField<int?>(
+      key: ValueKey<String>('place-$tripId-$current'),
+      initialValue: current,
+      isExpanded: true,
+      decoration: const InputDecoration(
+        labelText: 'Place (optional)',
+        helperMaxLines: 3,
+        helperText: 'Only this trip\'s places are listed. Skip it for a stop on the way, or search for another place (it is added to the trip).',
+        border: OutlineInputBorder(),
+        prefixIcon: Icon(Icons.place_outlined),
+      ),
+      items: <DropdownMenuItem<int?>>[
+        const DropdownMenuItem<int?>(value: null, child: Text('No specific place (on the way)')),
+        for (final TripPlaceItem p in planned)
+          DropdownMenuItem<int?>(value: p.placeId, child: Text(p.name, overflow: TextOverflow.ellipsis)),
+        if (current != null && !inList)
+          DropdownMenuItem<int?>(value: current, child: Text(currentName ?? 'Selected place', overflow: TextOverflow.ellipsis)),
+        const DropdownMenuItem<int?>(value: _otherPlace, child: Text('Search for another place…')),
+      ],
+      onChanged: _saving
+          ? null
+          : (int? v) async {
+              if (v == _otherPlace) {
+                final PlaceModel? picked = await pickPlace(context);
+                if (picked == null || !mounted) {
+                  setState(() {});
+                  return;
+                }
+                setState(() {
+                  _placeId = picked.id;
+                  _placeName = picked.name;
+                  _placeTouched = true;
+                  _placeNeedsPlanning = !planned.any((TripPlaceItem p) => p.placeId == picked.id);
+                });
+                return;
+              }
+              setState(() {
+                _placeId = v;
+                _placeName = null;
+                _placeTouched = true;
+                _placeNeedsPlanning = false;
+              });
+            },
     );
   }
 }
