@@ -96,7 +96,9 @@ class _CaptureViewState extends ConsumerState<CaptureView> {
   Future<void> _pickPhotos() async {
     try {
       final FilePickerResult? result =
-          await FilePicker.platform.pickFiles(type: FileType.image, allowMultiple: true, withData: true);
+          // compressionQuality 0 = original files; the default re-encodes at quality 30 and loses the rotation.
+          await FilePicker.platform.pickFiles(
+              type: FileType.image, allowMultiple: true, withData: true, compressionQuality: 0);
       if (result == null) return;
       int skipped = 0;
       final List<_PickedPhoto> added = <_PickedPhoto>[];

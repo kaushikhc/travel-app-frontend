@@ -31,7 +31,14 @@ class UploadedPhoto {
 Future<UploadedPhoto?> pickAndUploadPhoto(WidgetRef ref) async {
   final FilePickerResult? result;
   try {
-    result = await FilePicker.platform.pickFiles(type: FileType.image, allowMultiple: false, withData: true);
+    // compressionQuality 0 = hand over the original file. Left at its default, file_picker re-encodes
+    // photos on Android at quality 30, which drops the EXIF rotation flag but not the sideways pixels.
+    result = await FilePicker.platform.pickFiles(
+      type: FileType.image,
+      allowMultiple: false,
+      withData: true,
+      compressionQuality: 0,
+    );
   } catch (e) {
     throw PhotoPickException(e.toString());
   }
