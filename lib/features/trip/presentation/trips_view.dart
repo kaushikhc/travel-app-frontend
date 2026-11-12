@@ -48,7 +48,8 @@ class TripsView extends ConsumerWidget {
       ),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+          // Extra bottom room so the floating "New trip" button never hides the stats card.
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 96),
           child: Center(
             child: Container(
               constraints: const BoxConstraints(maxWidth: 800),
