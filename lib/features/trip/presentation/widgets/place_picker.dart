@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../explore/data/explore_repository.dart';
 import '../../../explore/domain/place_model.dart';
 import '../../../explore/presentation/explore_view.dart' show minSearchLength;
+import '../../../places/presentation/add_city_dialog.dart';
 
 /// Shows a search dialog and returns the chosen place, or null if dismissed. The backend searches
 /// names from 2 characters.
@@ -71,7 +72,17 @@ class _PlacePickerState extends ConsumerState<_PlacePicker> {
           ],
         ),
       ),
-      actions: <Widget>[TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel'))],
+      actions: <Widget>[
+        TextButton.icon(
+          onPressed: () async {
+            final PlaceModel? city = await addCity(context, initialName: _query);
+            if (city != null && context.mounted) Navigator.pop(context, city);
+          },
+          icon: const Icon(Icons.add_location_alt_outlined),
+          label: const Text('Add a city'),
+        ),
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+      ],
     );
   }
 }

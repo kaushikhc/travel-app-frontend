@@ -30,6 +30,14 @@ class ExploreRepository {
           .map(PlaceModel.fromJson)
           .toList(growable: false);
 
+  /// POST /api/places with type CITY: adds a city the seed list lacks. The server reuses a city with
+  /// the same name (any case) in the same country, so this is safe to repeat.
+  Future<PlaceModel> createCity({required String name, required String countryCode}) async =>
+      PlaceModel.fromJson((await _apiClient.post('/places', data: cityBody(name: name, countryCode: countryCode))).data as Map<String, dynamic>);
+
+  static Map<String, dynamic> cityBody({required String name, required String countryCode}) =>
+      <String, dynamic>{'name': name.trim(), 'type': 'CITY', 'countryCode': countryCode.trim().toUpperCase()};
+
   /// GET /api/places/{id}
   Future<PlaceModel> fetchPlace(int id) async =>
       PlaceModel.fromJson((await _apiClient.get('/places/$id')).data as Map<String, dynamic>);
