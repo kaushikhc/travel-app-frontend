@@ -22,6 +22,7 @@ import '../../features/memories/data/memory_repository.dart';
 import '../../features/memories/domain/memory_model.dart';
 import '../../features/memories/presentation/memories_view.dart';
 import '../../features/memories/presentation/memory_detail_view.dart';
+import '../../features/memories/presentation/place_memories_view.dart';
 import '../../features/capture/presentation/capture_view.dart';
 import '../../features/explore/presentation/explore_view.dart';
 import '../../features/explore/presentation/place_detail_view.dart';
@@ -148,6 +149,14 @@ final routerProvider = Provider<GoRouter>((ref) {
                 path: 'trip/:tripId',
                 builder: (BuildContext context, GoRouterState state) =>
                     TripMemoryView(tripId: int.tryParse(state.pathParameters['tripId'] ?? '') ?? 0),
+              ),
+              GoRoute(
+                path: 'place/:placeId',
+                builder: (BuildContext context, GoRouterState state) => PlaceMemoriesView(
+                  placeId: int.tryParse(state.pathParameters['placeId'] ?? '') ?? 0,
+                  tripId: int.tryParse(state.uri.queryParameters['tripId'] ?? '') ?? 0,
+                  placeName: state.uri.queryParameters['name'] ?? '',
+                ),
               ),
               GoRoute(
                 path: ':id',

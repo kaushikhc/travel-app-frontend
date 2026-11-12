@@ -10,11 +10,17 @@ class MemoryRepository {
   const MemoryRepository(this._apiClient);
 
   /// GET /api/memories (newest first). [tag] filters on the server, any case.
-  Future<List<MemoryModel>> fetchMemories({String? tag}) async {
+  /// [placeId] keeps memories at that place or at places inside it (a city's sights), [tripId] one trip.
+  Future<List<MemoryModel>> fetchMemories({String? tag, int? tripId, int? placeId}) async {
     final bool filter = tag != null && tag.trim().isNotEmpty;
+    final Map<String, dynamic> query = <String, dynamic>{
+      if (filter) 'tag': tag.trim(),
+      'tripId': ?tripId,
+      'placeId': ?placeId,
+    };
     final dynamic data = (await _apiClient.get(
       '/memories',
-      queryParameters: filter ? <String, dynamic>{'tag': tag.trim()} : null,
+      queryParameters: query.isEmpty ? null : query,
     ))
         .data;
     return (data as List<dynamic>).whereType<Map<String, dynamic>>().map(MemoryModel.fromJson).toList(growable: false);
@@ -127,6 +133,13 @@ final memoryRepositoryProvider =
 final memoriesProvider = FutureProvider.autoDispose<List<MemoryModel>>((Ref ref) {
   ref.watch(authStateProvider.select((AuthState s) => s.isAuthenticated));
   return ref.watch(memoryRepositoryProvider).fetchMemories();
+});
+
+/// Memories at one place (or inside it, for a city) on one trip: the itinerary's memories link.
+final placeMemoriesProvider =
+    FutureProvider.autoDispose.family<List<MemoryModel>, ({int tripId, int placeId})>((Ref ref, ({int tripId, int placeId}) key) {
+  ref.watch(authStateProvider.select((AuthState s) => s.isAuthenticated));
+  return ref.watch(memoryRepositoryProvider).fetchMemories(tripId: key.tripId, placeId: key.placeId);
 });
 
 final memoryDetailProvider = FutureProvider.autoDispose.family<MemoryModel, int>((Ref ref, int id) {
