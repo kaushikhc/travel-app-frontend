@@ -37,6 +37,7 @@ class MemoryRepository {
   /// the earliest capture time of the photos (their EXIF), else the time of saving.
   Future<MemoryModel> createMemory({
     int? tripId,
+    int? placeId,
     String? title,
     String? note,
     MemoryVisibility visibility = MemoryVisibility.private,
@@ -48,6 +49,7 @@ class MemoryRepository {
         (await _apiClient.post('/memories',
                 data: createBody(
                   tripId: tripId,
+                  placeId: placeId,
                   title: title,
                   note: note,
                   visibility: visibility,
@@ -58,8 +60,10 @@ class MemoryRepository {
             .data as Map<String, dynamic>);
   }
 
+  /// [placeId] must be a place planned or visited on the trip (the server answers 409 otherwise).
   static Map<String, dynamic> createBody({
     int? tripId,
+    int? placeId,
     String? title,
     String? note,
     required MemoryVisibility visibility,
@@ -70,6 +74,7 @@ class MemoryRepository {
     String? clean(String? s) => (s == null || s.trim().isEmpty) ? null : s.trim();
     return <String, dynamic>{
       'tripId': tripId,
+      'placeId': placeId,
       'title': clean(title),
       'note': clean(note),
       'visibility': visibility.apiName,
@@ -88,6 +93,8 @@ class MemoryRepository {
     required List<String> tags,
     required List<int> mediaIds,
     DateTime? capturedAt,
+    bool placeChanged = false,
+    int? placeId,
   }) async {
     return MemoryModel.fromJson(
       (await _apiClient.patch(
@@ -99,15 +106,17 @@ class MemoryRepository {
               tags: tags,
               mediaIds: mediaIds,
               capturedAt: capturedAt,
+              placeChanged: placeChanged,
+              placeId: placeId,
             ),
           )).data
           as Map<String, dynamic>,
     );
   }
 
-  /// The PATCH body. The backend leaves out-of-body fields unchanged, so `visitId` and `placeId`
-  /// are never sent here (a JSON null would clear visit and place), and `capturedAt` is sent only
-  /// when the traveler changed it. Title and note
+  /// The PATCH body. The backend leaves out-of-body fields unchanged, so `visitId` is never sent
+  /// here (a JSON null would clear it), `placeId` is sent only when [placeChanged] (null then clears
+  /// the place), and `capturedAt` is sent only when the traveler changed it. Title and note
   /// are sent trimmed, and an empty string clears them. `tags` and `mediaIds` replace the whole
   /// set or list; media left out of `mediaIds` is deleted by the server if nothing else uses it.
   static Map<String, dynamic> updateBody({
@@ -117,7 +126,10 @@ class MemoryRepository {
     required List<String> tags,
     required List<int> mediaIds,
     DateTime? capturedAt,
+    bool placeChanged = false,
+    int? placeId,
   }) => <String, dynamic>{
+    if (placeChanged) 'placeId': placeId,
     'title': title.trim(),
     if (capturedAt != null) 'capturedAt': ApiTime.formatApi(capturedAt),
     'note': note.trim(),

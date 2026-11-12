@@ -90,6 +90,7 @@ void main() {
     expect(api.calls, <String>['POST /memories']);
     expect(api.body, <String, dynamic>{
       'tripId': 3,
+      'placeId': null,
       'title': 'Sunset',
       'note': null,
       'visibility': 'FRIENDS_ONLY',
