@@ -7,7 +7,9 @@ import 'package:travel_app_frontend/features/capture/presentation/capture_view.d
 import 'package:travel_app_frontend/features/media/data/media_repository.dart';
 import 'package:travel_app_frontend/features/memories/data/memory_repository.dart';
 import 'package:travel_app_frontend/features/memories/domain/memory_model.dart';
+import 'package:travel_app_frontend/features/memories/domain/memory_stack.dart';
 import 'package:travel_app_frontend/features/memories/presentation/memories_view.dart';
+import 'package:travel_app_frontend/features/memories/presentation/trip_memories_view.dart';
 import 'package:travel_app_frontend/features/trip/data/trip_repository.dart';
 import 'package:travel_app_frontend/features/trip/domain/trip_model.dart';
 
@@ -208,22 +210,62 @@ void main() {
         child: const MaterialApp(home: MemoriesView()),
       );
 
-  testWidgets('the list shows title, trip name and date, and filters by tag', (WidgetTester tester) async {
+  testWidgets('memories stack up per trip and tag filter narrows the stacks', (WidgetTester tester) async {
     final List<MemoryModel> list = <MemoryModel>[
       MemoryModel.fromJson(<String, dynamic>{..._json, 'media': <Object>[]}),
-      const MemoryModel(id: 8, tripId: 3, title: 'Dinner', tags: <String>['Food']),
-      const MemoryModel(id: 9, tripId: 3, title: 'Hike', tags: <String>['trail']),
+      MemoryModel(id: 8, tripId: 3, title: 'Dinner', tags: const <String>['Food'], capturedAt: DateTime.utc(2026, 11, 12)),
+      const MemoryModel(id: 9, tripId: 4, title: 'Hike', tags: <String>['trail']),
     ];
     await tester.pumpWidget(app(list));
     await tester.pumpAndSettle();
-    expect(find.text('Sunset'), findsOneWidget);
-    expect(find.textContaining('Kerala'), findsWidgets);
-    expect(find.textContaining('2026'), findsOneWidget);
-    await tester.tap(find.widgetWithText(FilterChip, 'food'));
+    // Two trips, so two stacks; individual memories are not cards on this page.
+    expect(find.text('Kerala'), findsOneWidget);
+    expect(find.text('Trip'), findsOneWidget);
+    expect(find.textContaining('2 memories'), findsOneWidget);
+    expect(find.textContaining('1 memory'), findsOneWidget);
+    expect(find.text('Sunset'), findsNothing);
+    await tester.tap(find.widgetWithText(FilterChip, 'trail'));
     await tester.pumpAndSettle();
-    expect(find.text('Sunset'), findsOneWidget);
-    expect(find.text('Dinner'), findsOneWidget);
-    expect(find.text('Hike'), findsNothing);
+    expect(find.text('Kerala'), findsNothing);
+    expect(find.text('Trip'), findsOneWidget);
+  });
+
+  testWidgets('an opened stack shows that trip\'s memories as a sorted grid', (WidgetTester tester) async {
+    final List<MemoryModel> list = <MemoryModel>[
+      MemoryModel(id: 1, tripId: 3, title: 'Old', capturedAt: DateTime.utc(2026, 11, 1)),
+      MemoryModel(id: 2, tripId: 3, title: 'New', capturedAt: DateTime.utc(2026, 11, 10)),
+      const MemoryModel(id: 3, tripId: 4, title: 'Elsewhere'),
+    ];
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          memoriesProvider.overrideWith((Ref ref) async => list),
+          tripsProvider.overrideWith(
+              (Ref ref) async => <TripModel>[const TripModel(id: 3, name: 'Kerala', status: TripStatus.active)]),
+          mediaUrlProvider.overrideWith((Ref ref, int id) async => null),
+        ],
+        child: const MaterialApp(home: TripMemoriesView(tripId: 3)),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Kerala'), findsOneWidget);
+    expect(find.text('Elsewhere'), findsNothing);
+    expect(tester.getTopLeft(find.text('New')).dy < tester.getTopLeft(find.text('Old')).dy ||
+        tester.getTopLeft(find.text('New')).dx < tester.getTopLeft(find.text('Old')).dx, isTrue);
+  });
+
+  test('groupMemoriesByTrip stacks per trip, newest first, trip-less memories together', () {
+    final List<MemoryStack> stacks = groupMemoriesByTrip(<MemoryModel>[
+      MemoryModel(id: 1, tripId: 3, capturedAt: DateTime.utc(2026, 11, 1)),
+      MemoryModel(id: 2, tripId: 4, createdAt: DateTime.utc(2026, 11, 20)),
+      MemoryModel(id: 3, tripId: 3, capturedAt: DateTime.utc(2026, 11, 5)),
+      const MemoryModel(id: 4),
+      const MemoryModel(id: 5),
+    ]);
+    expect(stacks.map((MemoryStack s) => s.tripId), <int?>[4, 3, null]);
+    expect(stacks[1].memories.map((MemoryModel m) => m.id), <int>[3, 1]);
+    expect(stacks[1].oldest, DateTime.utc(2026, 11, 1));
+    expect(stacks[2].memories.map((MemoryModel m) => m.id), <int>[5, 4]);
   });
 
   testWidgets('shows the empty state', (WidgetTester tester) async {

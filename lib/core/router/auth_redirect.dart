@@ -19,6 +19,8 @@ abstract final class AppRoutes {
   static const String following = '/profile/following';
   static const String memories = '/memories';
   static const String journey = '/memories/journey';
+  /// The grid of one trip's memories; a null trip opens the memories without a trip.
+  static String tripMemories(int? tripId) => '/memories/stack/${tripId ?? 'none'}';
   static String tripMemoryView(int tripId) => '/memories/trip/$tripId';
   static String placeMemories(int tripId, int placeId, String name) =>
       '/memories/place/$placeId?tripId=$tripId&name=${Uri.encodeQueryComponent(name)}';
