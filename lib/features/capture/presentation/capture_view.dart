@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../tags/presentation/tag_suggestions.dart';
 import '../../../core/router/auth_redirect.dart';
 import '../../../core/time/api_time.dart';
 import '../../media/data/media_repository.dart';
@@ -357,6 +358,7 @@ class _CaptureViewState extends ConsumerState<CaptureView> {
                         return null;
                       },
                     ),
+                    TagSuggestions(controller: _tags),
                     const SizedBox(height: 16),
                     DropdownButtonFormField<MemoryVisibility>(
                       initialValue: _visibility,

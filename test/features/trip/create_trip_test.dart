@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:travel_app_frontend/features/tags/data/tag_repository.dart';
 import 'package:travel_app_frontend/core/network/api_client.dart';
 import 'package:travel_app_frontend/features/trip/data/trip_repository.dart';
 import 'package:travel_app_frontend/features/trip/presentation/create_trip_view.dart';
@@ -56,7 +57,10 @@ void main() {
   testWidgets('the form blocks saving without a name', (WidgetTester tester) async {
     final FakeApi api = FakeApi();
     await tester.pumpWidget(ProviderScope(
-      overrides: [tripRepositoryProvider.overrideWithValue(TripRepository(api))],
+      overrides: [
+        tripRepositoryProvider.overrideWithValue(TripRepository(api)),
+        myTagsProvider.overrideWith((Ref ref) async => <String>[]),
+      ],
       child: const MaterialApp(home: CreateTripView()),
     ));
     await tester.tap(find.text('Create trip'));
@@ -102,6 +106,7 @@ void editTripTests() {
       overrides: [
         tripRepositoryProvider.overrideWithValue(TripRepository(_EditApi())),
         mediaUrlProvider.overrideWith((Ref ref, int id) async => null),
+        myTagsProvider.overrideWith((Ref ref) async => <String>[]),
       ],
       child: MaterialApp(
         home: CreateTripView(

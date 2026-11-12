@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/search/search_text.dart';
 import '../data/country_repository.dart';
 import '../domain/country_model.dart';
 
@@ -29,6 +30,9 @@ class CountryPicker extends ConsumerWidget {
           width: constraints.maxWidth,
           initialSelection: selectedId,
           enableFilter: true,
+          // Ignores case and accents and puts the best match first: "cote" finds Côte d'Ivoire.
+          filterCallback: (List<DropdownMenuEntry<int>> entries, String filter) =>
+              rankMatches<DropdownMenuEntry<int>>(entries, filter, (DropdownMenuEntry<int> e) => e.label),
           requestFocusOnTap: true,
           menuHeight: 320,
           label: Text(label),
