@@ -5,6 +5,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../media/data/media_repository.dart';
 
+/// The system photo picker failed before any upload started.
+class PhotoPickException implements Exception {
+  const PhotoPickException(this.detail);
+  final String detail;
+
+  @override
+  String toString() => 'Could not open the photo picker: $detail';
+}
+
 /// A photo picked and uploaded, ready to save on the profile.
 class UploadedPhoto {
   const UploadedPhoto(this.mediaId, this.bytes);
@@ -19,11 +28,12 @@ class UploadedPhoto {
 /// Throws a [FormatException] with a message to show for an unsupported file,
 /// and the network error if the upload fails.
 Future<UploadedPhoto?> pickAndUploadPhoto(WidgetRef ref) async {
-  final FilePickerResult? result = await FilePicker.platform.pickFiles(
-    type: FileType.image,
-    allowMultiple: false,
-    withData: true,
-  );
+  final FilePickerResult? result;
+  try {
+    result = await FilePicker.platform.pickFiles(type: FileType.image, allowMultiple: false, withData: true);
+  } catch (e) {
+    throw PhotoPickException(e.toString());
+  }
   final PlatformFile? file = result?.files.single;
   final Uint8List? bytes = file?.bytes;
   if (file == null || bytes == null) return null;
@@ -39,5 +49,8 @@ Future<UploadedPhoto?> pickAndUploadPhoto(WidgetRef ref) async {
 String photoUploadError(Object error) {
   if (error is FormatException) return error.message;
   if (error is MediaUploadException) return 'Could not upload the photo. $error';
-  return 'Could not upload the photo. Please try again.';
+  if (error is PhotoPickException) return error.toString();
+  // Unexpected error: include its type and text so a bug report says what broke.
+  final String text = error.toString();
+  return 'Could not upload the photo (${error.runtimeType}): ${text.length > 160 ? text.substring(0, 160) : text}';
 }
