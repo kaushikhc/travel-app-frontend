@@ -9,7 +9,7 @@ import 'itinerary_dialogs.dart';
 import 'place_picker.dart';
 
 const List<String> stayTypes = <String>['HOTEL', 'HOSTEL', 'RESORT', 'RENTAL', 'CAMPING', 'FRIENDS_FAMILY', 'OTHER'];
-const List<String> transportTypes = <String>['FLIGHT', 'TRAIN', 'BUS', 'FERRY', 'CRUISE', 'CAR', 'TAXI', 'METRO', 'WALK', 'OTHER'];
+const List<String> transportTypes = <String>['FLIGHT', 'TRAIN', 'BUS', 'FERRY', 'CRUISE', 'CAR', 'TAXI', 'METRO', 'WALK', 'BICYCLE', 'MOTORCYCLE', 'OTHER'];
 
 String typeLabel(String t) => t[0] + t.substring(1).toLowerCase().replaceAll('_', ' / ');
 
