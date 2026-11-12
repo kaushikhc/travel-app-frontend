@@ -4,6 +4,7 @@ Last updated: 2026-11-12 (Home bell opens an empty Notifications page and the av
 
 ## Where things stand
 - Scaffold with feature folders: auth, profile, trip, memories, capture, explore, navigation.
+- Android app identity (PR #49): launcher label is **Trailmark** (working name, Sam 2026-11-12; the Dart package `travel_app_frontend` and Android package `com.travelapp.travel_app_frontend` are unchanged because Google sign-in depends on them). Launcher icon is a compass pin with a North mark, a plane and a hiker on a mountain ridge: legacy PNGs per density plus an adaptive icon (`mipmap-anydpi-v26`, background and foreground layers), generated from the SVGs in `assets/icon/`. iOS and web names are not changed yet.
 - Profile sends the device IANA time zone (`flutter_timezone`) whenever it differs from the server's; countries come from `GET /api/places/countries` (`CountryPicker`, searchable).
 - Profile photo: picking a photo uploads it straight away through the media API (`MediaRepository.uploadPhoto`: `POST /api/media/uploads`, PUT the bytes to the signed URL with a plain Dio, `POST /api/media/{id}/complete`), and saving sends `photoMediaId` (needs backend kaushikhc/travel-app#37). The profile's `photoUrl` is the signed link to show. Never send base64 in `photoUrl`; the backend rejects it.
 - Birthday: `BirthdayPicker` (day, month, year dropdowns; no impossible or future dates), sent as `yyyy-MM-dd` (`ApiDate`). There is no Age input: the server works out `age` from the birthday. Birthday is only returned by `GET /profile/me`, so other travelers never see it.
@@ -59,6 +60,8 @@ Until the MVP is ready, PRs go to `main`. After that, all development goes to `d
 ## Open items for Sam
 - Android OAuth client in Google Cloud (package `com.travelapp.travel_app_frontend` + debug SHA-1).
 - iOS on hold; Apple sign-in to be decided when iOS resumes.
+- Trademark check for "Trailmark" (and the final brand name) before launch. "Roamly" was rejected: existing travel apps use that name; "Wayfarer" is crowded.
+- Check the launcher icon on round and square launcher masks on a real device.
 
 ## How to run
 - Backend CORS allows only the `Authorization`, `Content-Type` and `Accept` headers. Don't add other default headers for non-ngrok hosts, or browser calls fail as "could not reach the server".
