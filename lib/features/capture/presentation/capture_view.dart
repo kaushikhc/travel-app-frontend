@@ -10,7 +10,9 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/router/auth_redirect.dart';
+import '../../../core/time/api_time.dart';
 import '../../media/data/media_repository.dart';
+import '../../media/data/photo_metadata.dart';
 import '../../memories/data/memory_repository.dart';
 import '../../memories/domain/memory_model.dart';
 import '../../memories/presentation/widgets/memory_photo.dart';
@@ -40,9 +42,12 @@ class _PickedPhoto {
   final String name;
   final Uint8List bytes;
   final String mimeType;
+
+  /// When the photo was taken, from its EXIF metadata (null if it has none).
+  final DateTime? takenAt;
   int? mediaId;
 
-  _PickedPhoto(this.name, this.bytes, this.mimeType);
+  _PickedPhoto(this.name, this.bytes, this.mimeType) : takenAt = photoCaptureTime(bytes, mimeType);
 }
 
 /// The capture form. With [memory] it is the edit form for that saved memory (prefilled, existing
@@ -66,6 +71,11 @@ class _CaptureViewState extends ConsumerState<CaptureView> {
   int? _tripId;
   bool _tripTouched = false;
   MemoryVisibility _visibility = MemoryVisibility.private;
+
+  /// The time the traveler chose, which memories sort by. Null means automatic: the earliest photo
+  /// time, else when it is saved. When editing, it starts as the memory's time and is sent only if changed.
+  DateTime? _capturedAt;
+  bool _timeTouched = false;
   bool _saving = false;
 
   bool get _isEdit => widget.memory != null;
@@ -80,6 +90,7 @@ class _CaptureViewState extends ConsumerState<CaptureView> {
       _note.text = m.note ?? '';
       _tags.text = m.tags.join(', ');
       _visibility = m.visibility;
+      _capturedAt = m.capturedAt;
       _tripId = m.tripId;
       _tripTouched = true;
     }
@@ -160,7 +171,7 @@ class _CaptureViewState extends ConsumerState<CaptureView> {
     try {
       final MediaRepository media = ref.read(mediaRepositoryProvider);
       for (final _PickedPhoto p in _photos) {
-        p.mediaId ??= await media.uploadPhoto(p.bytes, p.mimeType);
+        p.mediaId ??= await media.uploadPhoto(p.bytes, p.mimeType, capturedAt: p.takenAt);
       }
       final List<int> mediaIds = <int>[
         for (final MemoryMedia m in _existing) m.id,
@@ -177,6 +188,7 @@ class _CaptureViewState extends ConsumerState<CaptureView> {
               visibility: _visibility,
               tags: parseTags(_tags.text),
               mediaIds: mediaIds,
+              capturedAt: _timeTouched ? _capturedAt : null,
             );
         ref.invalidate(memoryDetailProvider(editing.id));
         ref.invalidate(memoriesProvider);
@@ -191,7 +203,7 @@ class _CaptureViewState extends ConsumerState<CaptureView> {
             title: _title.text,
             note: _note.text,
             visibility: _visibility,
-            capturedAt: DateTime.now(),
+            capturedAt: _capturedAt,
             tags: parseTags(_tags.text),
             mediaIds: mediaIds,
           );
@@ -208,6 +220,8 @@ class _CaptureViewState extends ConsumerState<CaptureView> {
         _visibility = MemoryVisibility.private;
         _tripTouched = false;
         _tripId = null;
+        _capturedAt = null;
+        _timeTouched = false;
       });
       context.go(AppRoutes.memories);
     } catch (e) {
@@ -297,6 +311,8 @@ class _CaptureViewState extends ConsumerState<CaptureView> {
                     const SizedBox(height: 16),
                     _tripPicker(tripsAsync, trips, tripId),
                     const SizedBox(height: 16),
+                    _timePicker(),
+                    const SizedBox(height: 16),
                     TextFormField(
                       controller: _tags,
                       decoration: const InputDecoration(
@@ -342,6 +358,56 @@ class _CaptureViewState extends ConsumerState<CaptureView> {
         ),
       ),
     );
+  }
+
+  /// The time memories sort by. Left automatic it is the earliest photo time, else when saved.
+  Widget _timePicker() {
+    final DateTime? chosen = _capturedAt;
+    // A saved memory always has a time, and PATCH cannot clear it, so only a new memory can go back to automatic.
+    final bool canClear = chosen != null && !_isEdit;
+    return InkWell(
+      onTap: _saving ? null : _pickTime,
+      child: InputDecorator(
+        decoration: InputDecoration(
+          labelText: 'Date and time',
+          helperText: _isEdit ? 'Memories are sorted by this.' : 'Memories are sorted by this. Left automatic, the photo date is used.',
+          helperMaxLines: 2,
+          border: const OutlineInputBorder(),
+          prefixIcon: const Icon(Icons.event_outlined),
+          suffixIcon: canClear
+              ? IconButton(
+                  tooltip: 'Use the photo date',
+                  icon: const Icon(Icons.clear),
+                  onPressed: _saving
+                      ? null
+                      : () => setState(() {
+                          _capturedAt = null;
+                          _timeTouched = true;
+                        }),
+                )
+              : null,
+        ),
+        child: Text(chosen == null ? 'Automatic' : ApiTime.formatDateTime(chosen)),
+      ),
+    );
+  }
+
+  Future<void> _pickTime() async {
+    final DateTime now = DateTime.now();
+    final DateTime initial = (_capturedAt ?? now).toLocal();
+    final DateTime? day = await showDatePicker(
+      context: context,
+      initialDate: initial.isAfter(now) ? now : initial,
+      firstDate: DateTime(1970),
+      lastDate: now,
+    );
+    if (day == null || !mounted) return;
+    final TimeOfDay? time = await showTimePicker(context: context, initialTime: TimeOfDay.fromDateTime(initial));
+    if (time == null || !mounted) return;
+    setState(() {
+      _capturedAt = DateTime(day.year, day.month, day.day, time.hour, time.minute).toUtc();
+      _timeTouched = true;
+    });
   }
 
   Widget _photoStrip() {

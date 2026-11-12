@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/time/api_time.dart';
 import 'photo_orientation.dart';
 
 /// The image types the backend accepts, by file extension.
@@ -60,14 +61,20 @@ class MediaRepository {
 
   /// Uploads a photo the way the backend expects: ask for a signed URL, PUT the bytes
   /// there, then confirm. Returns the media id, ready to attach (profile photo, trip cover).
-  Future<int> uploadPhoto(Uint8List original, String mimeType) async {
+  /// [capturedAt] is when the photo was taken (from its EXIF metadata); the backend uses it as
+  /// the memory's time when the traveler sets none.
+  Future<int> uploadPhoto(Uint8List original, String mimeType, {DateTime? capturedAt}) async {
     final Uint8List bytes = await uprightPhoto(original, mimeType);
     final Map<String, dynamic> ticket =
         (await _step(
               'start',
               () => _apiClient.post(
                 '/media/uploads',
-                data: <String, dynamic>{'mimeType': mimeType, 'sizeBytes': bytes.length},
+                data: <String, dynamic>{
+                  'mimeType': mimeType,
+                  'sizeBytes': bytes.length,
+                  if (capturedAt != null) 'capturedAt': ApiTime.formatApi(capturedAt),
+                },
               ),
             )).data
             as Map<String, dynamic>;

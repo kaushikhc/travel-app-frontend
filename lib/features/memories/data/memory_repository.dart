@@ -33,7 +33,8 @@ class MemoryRepository {
   /// POST /api/memories (JSON). Photos are uploaded first with `MediaRepository.uploadPhoto`
   /// and passed as [mediaIds] in display order. The backend needs a title, a note or at least
   /// one photo, and a trip: without [tripId] it uses the traveler's ACTIVE trip (409 if none).
-  /// [capturedAt] is sent as a UTC `LocalDateTime` (no offset).
+  /// [capturedAt] is sent as a UTC `LocalDateTime` (no offset). Leave it null to let the backend use
+  /// the earliest capture time of the photos (their EXIF), else the time of saving.
   Future<MemoryModel> createMemory({
     int? tripId,
     String? title,
@@ -86,6 +87,7 @@ class MemoryRepository {
     required MemoryVisibility visibility,
     required List<String> tags,
     required List<int> mediaIds,
+    DateTime? capturedAt,
   }) async {
     return MemoryModel.fromJson(
       (await _apiClient.patch(
@@ -96,14 +98,16 @@ class MemoryRepository {
               visibility: visibility,
               tags: tags,
               mediaIds: mediaIds,
+              capturedAt: capturedAt,
             ),
           )).data
           as Map<String, dynamic>,
     );
   }
 
-  /// The PATCH body. The backend leaves out-of-body fields unchanged, so `capturedAt`, `visitId`
-  /// and `placeId` are never sent here (a JSON null would clear visit and place). Title and note
+  /// The PATCH body. The backend leaves out-of-body fields unchanged, so `visitId` and `placeId`
+  /// are never sent here (a JSON null would clear visit and place), and `capturedAt` is sent only
+  /// when the traveler changed it. Title and note
   /// are sent trimmed, and an empty string clears them. `tags` and `mediaIds` replace the whole
   /// set or list; media left out of `mediaIds` is deleted by the server if nothing else uses it.
   static Map<String, dynamic> updateBody({
@@ -112,8 +116,10 @@ class MemoryRepository {
     required MemoryVisibility visibility,
     required List<String> tags,
     required List<int> mediaIds,
+    DateTime? capturedAt,
   }) => <String, dynamic>{
     'title': title.trim(),
+    if (capturedAt != null) 'capturedAt': ApiTime.formatApi(capturedAt),
     'note': note.trim(),
     'visibility': visibility.apiName,
     'tags': tags,
