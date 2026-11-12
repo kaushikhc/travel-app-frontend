@@ -1,11 +1,11 @@
 {
-    "name": "travel_app_frontend",
-    "short_name": "travel_app_frontend",
+    "name": "Trailmark",
+    "short_name": "Trailmark",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#0F766E",
+    "theme_color": "#0F766E",
+    "description": "Plan trips, keep memories and track where you have been.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

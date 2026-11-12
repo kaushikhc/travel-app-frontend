@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/branding/app_brand.dart';
 import '../../auth/presentation/auth_state.dart';
 
 class MainScaffold extends ConsumerWidget {
@@ -45,7 +46,6 @@ class MainScaffold extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final isDesktopOrWeb = MediaQuery.of(context).size.width >= 800;
     final selectedIndex = _getSelectedIndex();
-    final theme = Theme.of(context);
 
     if (isDesktopOrWeb) {
       return Scaffold(
@@ -60,21 +60,10 @@ class MainScaffold extends ConsumerWidget {
                 padding: const EdgeInsets.symmetric(vertical: 24.0),
                 child: Column(
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.primary.withValues(alpha: 0.15),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        Icons.explore,
-                        size: 32,
-                        color: theme.colorScheme.primary,
-                      ),
-                    ),
+                    const AppLogo(size: 48),
                     const SizedBox(height: 8),
                     const Text(
-                      'TravelApp',
+                      AppBrand.name,
                       style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                     ),
                   ],
