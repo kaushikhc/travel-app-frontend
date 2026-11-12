@@ -38,6 +38,48 @@ class ExploreRepository {
   static Map<String, dynamic> cityBody({required String name, required String countryCode}) =>
       <String, dynamic>{'name': name.trim(), 'type': 'CITY', 'countryCode': countryCode.trim().toUpperCase()};
 
+  /// POST /api/places: adds a point of interest (zoo, temple...) under [parentPlaceId] (a city), or under a
+  /// country/region given by code when there is no city. [categories] are names from [fetchCategories].
+  Future<PlaceModel> createPlace({
+    required String name,
+    int? parentPlaceId,
+    String? countryCode,
+    String? regionCode,
+    String? address,
+    List<String> categories = const <String>[],
+  }) async =>
+      PlaceModel.fromJson((await _apiClient.post('/places',
+              data: placeBody(
+                  name: name,
+                  parentPlaceId: parentPlaceId,
+                  countryCode: countryCode,
+                  regionCode: regionCode,
+                  address: address,
+                  categories: categories)))
+          .data as Map<String, dynamic>);
+
+  /// The backend wants either a parent place or a country (+ optional region) code, never both.
+  static Map<String, dynamic> placeBody({
+    required String name,
+    int? parentPlaceId,
+    String? countryCode,
+    String? regionCode,
+    String? address,
+    List<String> categories = const <String>[],
+  }) =>
+      <String, dynamic>{
+        'name': name.trim(),
+        'type': 'POINT_OF_INTEREST',
+        if (parentPlaceId != null)
+          'parentPlaceId': parentPlaceId
+        else ...<String, dynamic>{
+          if (countryCode != null) 'countryCode': countryCode.trim().toUpperCase(),
+          if (regionCode != null) 'regionCode': regionCode.trim().toUpperCase(),
+        },
+        if (address != null && address.trim().isNotEmpty) 'address': address.trim(),
+        if (categories.isNotEmpty) 'categories': categories,
+      };
+
   /// GET /api/places/{id}
   Future<PlaceModel> fetchPlace(int id) async =>
       PlaceModel.fromJson((await _apiClient.get('/places/$id')).data as Map<String, dynamic>);
